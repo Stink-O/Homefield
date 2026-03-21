@@ -1,0 +1,45 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev -H 0.0.0.0 --experimental-https --experimental-https-cert ./cert.pem --experimental-https-key ./key.pem",
+    "dev:http": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev -H 0.0.0.0",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "start": "next start",
+    "serve": "next build && node server.js",
+    "serve:start": "node server.js",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.13.19",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.8.0",
+    "drizzle-orm": "^0.45.1",
+    "framer-motion": "^12.34.3",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.575.0",
+    "next": "16.1.6",
+    "next-auth": "^5.0.0-beta.30",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-photo-album": "^3.5.1",
+    "sharp": "^0.34.5",
+    "web-haptics": "^0.0.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
+    "drizzle-kit": "^0.31.9",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}

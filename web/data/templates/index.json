@@ -1,0 +1,52 @@
+{
+  "totalRecords": 10633,
+  "chunks": 54,
+  "chunkSize": 200,
+  "categoryCounts": {
+    "json": 4966,
+    "portrait": 2155,
+    "product": 528,
+    "character": 375,
+    "international": 2131,
+    "general": 478
+  },
+  "subcategoryCounts": {
+    "portrait": {
+      "other": 367,
+      "headshots": 665,
+      "beauty": 353,
+      "fashion": 265,
+      "lifestyle": 59,
+      "selfies": 187,
+      "editorial": 240,
+      "glamour": 19
+    },
+    "character": {
+      "illustration": 56,
+      "fantasy": 49,
+      "other": 147,
+      "cartoon": 45,
+      "hero-villain": 19,
+      "anime": 31,
+      "creature": 20,
+      "character-design": 8
+    },
+    "product": {
+      "food-macro": 127,
+      "vintage": 12,
+      "other": 150,
+      "vehicles": 83,
+      "miniature": 73,
+      "architecture": 35,
+      "3d-render": 48
+    },
+    "general": {
+      "other": 331,
+      "cinematic": 87,
+      "poster-collage": 29,
+      "surreal": 15,
+      "vintage-aesthetic": 11,
+      "urban-street": 5
+    }
+  }
+}

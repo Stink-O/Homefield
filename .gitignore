@@ -1,0 +1,17 @@
+# Runtime storage (database + generated images)
+storage/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# SSL certificates (machine-specific)
+*.pem
+*.key.pem
+
+# Claude Code local settings and agent memory
+.claude/
+
+# Claude Swarm
+.swarm/

@@ -1,0 +1,306 @@
+@import "tailwindcss";
+
+/* Hide hover-only UI elements (card overlay buttons) on touch devices */
+@media (pointer: coarse) {
+  [data-hover-only] {
+    display: none !important;
+  }
+}
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-elevated: #1a1a1a;
+  --border: rgba(255, 255, 255, 0.06);
+  --text-primary: #f5f5f5;
+  --text-secondary: #71717a;
+  --accent: #a3e635;
+  --accent-hover: #bef264;
+  --accent-dim: rgba(163, 230, 53, 0.08);
+  --danger: #ef4444;
+  --glass-bg: rgba(17, 17, 17, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  /* Chrome — decorative borders/surfaces used in sheets & command bars */
+  --chrome-border: rgba(255, 255, 255, 0.10);
+  --chrome-border-strong: rgba(255, 255, 255, 0.20);
+  --chrome-surface: rgba(255, 255, 255, 0.03);
+  --chrome-surface-hover: rgba(255, 255, 255, 0.07);
+  --chrome-handle: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="light"] {
+  --bg: #f5f5f0;
+  --surface: #ffffff;
+  --surface-elevated: #fafaf8;
+  --border: rgba(0, 0, 0, 0.08);
+  --text-primary: #111111;
+  --text-secondary: #555555;
+  --accent: #a3e635;
+  --accent-hover: #bef264;
+  --accent-dim: rgba(163, 230, 53, 0.15);
+  --danger: #ef4444;
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  /* Chrome — light mode equivalents */
+  --chrome-border: rgba(0, 0, 0, 0.08);
+  --chrome-border-strong: rgba(0, 0, 0, 0.16);
+  --chrome-surface: rgba(0, 0, 0, 0.03);
+  --chrome-surface-hover: rgba(0, 0, 0, 0.06);
+  --chrome-handle: rgba(0, 0, 0, 0.18);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-dim: var(--accent-dim);
+  --color-danger: var(--danger);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --font-sans: var(--font-outfit);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+/* ── Noise Texture Overlay ── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ── Reference image strip scrollbar ── */
+.ref-image-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+.ref-image-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ref-image-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+.ref-image-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+[data-theme="light"] .ref-image-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+}
+[data-theme="light"] .ref-image-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.30);
+}
+
+/* ── Prevent iOS auto-zoom on input focus ── */
+@media (max-width: 639px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Base ── */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #222 #0a0a0a;
+}
+
+[data-theme="light"] html,
+html[data-theme="light"] {
+  scrollbar-color: #c0c0bb #f5f5f0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-outfit), sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 3px;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #c0c0bb;
+}
+
+/* ── Scrollbar hide utility ── */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Glassmorphism Utilities ── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-heavy {
+  background: #191919;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.glass-command {
+  --command-bg: #141414;
+  background: var(--command-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ── Light mode glass overrides ── */
+[data-theme="light"] .glass {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .glass-heavy {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .glass-command {
+  --command-bg: #ffffff;
+  background: var(--command-bg);
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.10), 0 -1px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* ── Refresh flick (spin once with bounce back) ── */
+@keyframes refresh-flick {
+  0%   { transform: rotate(0deg); }
+  75%  { transform: rotate(390deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ── Shimmer Animation ── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    110deg,
+    var(--surface) 30%,
+    var(--surface-elevated) 50%,
+    var(--surface) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Glow Effect ── */
+.glow-accent {
+  box-shadow: 0 0 80px 20px var(--accent-dim),
+    0 0 160px 60px rgba(163, 230, 53, 0.03);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(163, 230, 53, 0.35);
+  color: #111111;
+}
+
+/* ── Gallery Size Slider ── */
+.gallery-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+  outline: none;
+  cursor: pointer;
+}
+
+/* Webkit thumb: solid white circle */
+.gallery-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.gallery-slider:active::-webkit-slider-thumb {
+  background: var(--accent);
+}
+
+/* Firefox */
+.gallery-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.gallery-slider:active::-moz-range-thumb {
+  background: var(--accent);
+}
+
+.gallery-slider::-moz-range-track {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ── Light mode slider ── */
+[data-theme="light"] .gallery-slider {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .gallery-slider::-webkit-slider-thumb {
+  background: #555555;
+}
+
+[data-theme="light"] .gallery-slider:active::-webkit-slider-thumb {
+  background: var(--accent);
+}
+
+[data-theme="light"] .gallery-slider::-moz-range-thumb {
+  background: #555555;
+}
+
+[data-theme="light"] .gallery-slider:active::-moz-range-thumb {
+  background: var(--accent);
+}
+
+[data-theme="light"] .gallery-slider::-moz-range-track {
+  background: rgba(0, 0, 0, 0.15);
+}

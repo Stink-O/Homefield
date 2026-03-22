@@ -139,7 +139,7 @@ const PromptCard = memo(function PromptCard({
 
   return (
     <div
-      className="group rounded-xl border border-[var(--chrome-border)] bg-[var(--chrome-surface)] overflow-hidden cursor-pointer hover:border-[var(--chrome-border-strong)] hover:bg-[var(--chrome-surface-hover)] transition-all duration-150"
+      className="group rounded-xl border border-[var(--chrome-border)] bg-[var(--chrome-surface)] overflow-hidden cursor-pointer hover:border-[var(--chrome-border-strong)] hover:bg-[var(--chrome-surface-hover)] transition-colors duration-150"
       style={{ contentVisibility: "auto", containIntrinsicSize: "0 220px" }}
       onClick={fire}
     >
@@ -158,7 +158,7 @@ const PromptCard = memo(function PromptCard({
         )}
         <button
           onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-          className={`absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-lg backdrop-blur-sm transition-all duration-150 ${
+          className={`absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-lg transition-colors duration-150 ${
             isFavorited
               ? "bg-red-500/90 text-white"
               : "bg-black/40 text-white/40 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-black/60"
@@ -215,7 +215,7 @@ const MineCard = memo(function MineCard({
 
   return (
     <div
-      className="group rounded-xl border border-[var(--chrome-border)] bg-[var(--chrome-surface)] overflow-hidden cursor-pointer hover:border-[var(--chrome-border-strong)] hover:bg-[var(--chrome-surface-hover)] transition-all duration-150"
+      className="group rounded-xl border border-[var(--chrome-border)] bg-[var(--chrome-surface)] overflow-hidden cursor-pointer hover:border-[var(--chrome-border-strong)] hover:bg-[var(--chrome-surface-hover)] transition-colors duration-150"
       onClick={fire}
     >
       <div className="relative">
@@ -244,7 +244,7 @@ const MineCard = memo(function MineCard({
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-lg bg-black/40 backdrop-blur-sm text-white/40 opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-black/60 transition-all duration-150"
+            className="absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-lg bg-black/40 text-white/40 opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-black/60 transition-colors duration-150"
             aria-label="Delete template"
           >
             <Trash2 size={13} />
@@ -727,7 +727,7 @@ export default function TemplateDrawer({ open, onClose, onSelectPrompt }: Templa
             key="backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-black/85"
             onClick={onClose}
           />
 
@@ -735,7 +735,7 @@ export default function TemplateDrawer({ open, onClose, onSelectPrompt }: Templa
           <motion.div
             key="panel"
             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            transition={{ type: "tween", duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             className="fixed inset-x-0 bottom-0 z-[201] flex flex-col rounded-t-2xl border-t border-[var(--chrome-border)]"
             style={{ height: "90%", background: "var(--surface)", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)" }}
             onClick={(e) => e.stopPropagation()}

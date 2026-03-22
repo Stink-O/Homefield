@@ -7,6 +7,7 @@ import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Download, Copy, Check, Trash2, ImagePlus, Info, ChevronDown, SlidersHorizontal, Maximize2, MoreVertical, ChevronRight, Wand2 } from "lucide-react";
 import type { Session } from "next-auth";
 import ShimmerPlaceholder from "./ShimmerPlaceholder";
+import BatchSelectBar from "./BatchSelectBar";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import ZoomModal from "./ZoomModal";
 import { ROW_CONFIGS, MODELS, getAspectDimensions, type AspectRatio, type GeneratedImageMeta, type Workspace } from "@/lib/types";
@@ -36,6 +37,10 @@ interface SharedGalleryProps {
   onPromptSelect?: (prompt: string) => void;
   onCancel?: (pendingId: string) => void;
   onRetry?: (pendingId: string) => void;
+  onBatchDelete?: (ids: string[]) => void;
+  onBatchDownload?: (ids: string[]) => void;
+  onBatchCopyTo?: (ids: string[], targetWorkspaceId: string) => void;
+  onBatchModeChange?: (active: boolean) => void;
 }
 
 interface GalleryPhoto {
@@ -80,10 +85,13 @@ interface SharedCardProps {
   onReference?: (image: GeneratedImageMeta) => void;
   onRestore?: (image: GeneratedImageMeta) => void;
   onPromptSelect?: (prompt: string) => void;
+  isSelected?: boolean;
+  onSelect?: (id: string, selected: boolean, shift?: boolean) => void;
+  batchMode?: boolean;
 }
 
 const SharedCard = memo(function SharedCard({
-  image, index, isOwn, isAdmin, workspaces, onExpand, onDelete, onReference, onRestore, onPromptSelect,
+  image, index, isOwn, isAdmin, workspaces, onExpand, onDelete, onReference, onRestore, onPromptSelect, isSelected = false, onSelect, batchMode,
 }: SharedCardProps) {
   const [copied, setCopied] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -170,13 +178,20 @@ const SharedCard = memo(function SharedCard({
     <>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={{ opacity: 1, y: 0, scale: isSelected ? 0.94 : 1 }}
         transition={{
           opacity: { duration: 0.35, delay: Math.min(index * 0.05, 0.3), ease: [0.23, 1, 0.32, 1] },
           y: { duration: 0.35, delay: Math.min(index * 0.05, 0.3), ease: [0.23, 1, 0.32, 1] },
+          scale: { duration: 0.15, ease: [0.23, 1, 0.32, 1] },
         }}
         className="@container group relative cursor-pointer overflow-hidden w-full h-full"
-        onClick={onExpand}
+        onClick={(e) => {
+          if (batchMode && onSelect) {
+            onSelect(image.id, !isSelected, e.shiftKey);
+            return;
+          }
+          onExpand();
+        }}
       >
         {thumbnailSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -189,14 +204,21 @@ const SharedCard = memo(function SharedCard({
           </div>
         )}
 
-        {/* Username — top left, always visible */}
-        {image.username && (
-          <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-md bg-black/50 backdrop-blur-sm px-1.5 py-0.5 pointer-events-none">
-            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400/80 text-[8px] font-bold text-black leading-none shrink-0">
-              {image.username[0].toUpperCase()}
-            </span>
-            <span className="text-[10px] font-medium text-white/80 leading-none">{image.username}</span>
-          </div>
+        {isSelected && <div className="absolute inset-0 bg-accent/20 pointer-events-none" />}
+
+        {/* Batch select checkbox — top-left, visible on hover or when selected */}
+        {onSelect && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSelect(image.id, !isSelected, e.shiftKey); }}
+            className={`absolute top-2 left-2 z-10 flex h-5 w-5 items-center justify-center rounded transition-all ${
+              isSelected
+                ? "opacity-100 bg-accent border-2 border-accent"
+                : "opacity-0 group-hover:opacity-100 bg-black/40 border-2 border-white/60 backdrop-blur-sm"
+            }`}
+            title={isSelected ? "Deselect" : "Select"}
+          >
+            {isSelected && <Check size={11} className="text-black" strokeWidth={3} />}
+          </button>
         )}
 
         {/* Restore to prompt — desktop only, hover-reveal */}
@@ -225,8 +247,13 @@ const SharedCard = memo(function SharedCard({
         {/* Bottom gradient overlay — same structure as ImageCard */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none sm:pointer-events-auto">
           <div className="absolute bottom-3 left-3 right-3 overflow-hidden flex items-end justify-between gap-2">
-            {/* Left: prompt */}
-            <p className="flex-1 min-w-0 truncate text-xs text-white/70">{image.prompt}</p>
+            {/* Left: username + prompt */}
+            <div className="flex-1 min-w-0 flex flex-col gap-0.5 overflow-hidden">
+              {image.username && (
+                <span className="text-[9px] font-medium text-amber-300/70 leading-none">{image.username}</span>
+              )}
+              <p className="truncate text-xs text-white/70">{image.prompt}</p>
+            </div>
             {/* Right: actions */}
             <div className="flex items-center gap-1 shrink-0">
               <span className="hidden [@container(min-width:280px)]:inline-block rounded bg-black/40 px-1.5 py-0.5 font-mono text-[10px] text-white/55">
@@ -321,12 +348,14 @@ function SharedLightbox({
   const [seeAll, setSeeAll] = useState(false);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [refPreviewIndex, setRefPreviewIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setSeeAll(false);
     setPromptExpanded(false);
     setCopiedPanel(false);
     setDeleteConfirm(false);
+    setRefPreviewIndex(null);
   }, [image.id]);
 
   const imageSrc = `/api/images/${image.id}/download`;
@@ -574,6 +603,23 @@ function SharedLightbox({
                     <span className="text-xs text-text-secondary">Created</span>
                     <span className="text-xs text-text-primary font-semibold text-right">{formattedDate}</span>
                   </div>
+                  {image.referenceImageDataUrls && image.referenceImageDataUrls.length > 0 && (
+                    <div className="flex justify-between items-start py-2 border-b border-[var(--border)]">
+                      <span className="text-xs text-text-secondary mt-1">References ({image.referenceImageDataUrls.length})</span>
+                      <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+                        {image.referenceImageDataUrls.map((url, i) => (
+                          <img
+                            key={i}
+                            src={url}
+                            alt={`Reference ${i + 1}`}
+                            className="h-8 w-8 rounded object-cover cursor-pointer hover:ring-2 hover:ring-[var(--chrome-border-strong)] transition-all"
+                            onClick={() => setRefPreviewIndex(i)}
+                            title={`View reference ${i + 1}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               <div className="flex justify-between items-center py-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSeeAll((v) => !v)}>
@@ -606,6 +652,16 @@ function SharedLightbox({
 
         </div>
       </div>
+      {refPreviewIndex !== null && image.referenceImageDataUrls?.[refPreviewIndex] && (
+        <ZoomModal
+          src={image.referenceImageDataUrls[refPreviewIndex]}
+          alt={`Reference image ${refPreviewIndex + 1}`}
+          onClose={() => setRefPreviewIndex(null)}
+          caption={`Reference ${refPreviewIndex + 1} of ${image.referenceImageDataUrls.length}`}
+          onPrev={image.referenceImageDataUrls.length > 1 ? () => setRefPreviewIndex((i) => i !== null ? (i - 1 + image.referenceImageDataUrls!.length) % image.referenceImageDataUrls!.length : null) : undefined}
+          onNext={image.referenceImageDataUrls.length > 1 ? () => setRefPreviewIndex((i) => i !== null ? (i + 1) % image.referenceImageDataUrls!.length : null) : undefined}
+        />
+      )}
     </>
   );
 
@@ -625,10 +681,14 @@ function SharedLightbox({
 // ── Main SharedGallery ────────────────────────────────────────────────────────
 
 export default function SharedGallery({
-  images, pending, loading, session, workspaces = [], onDelete, onReference, onRestore, onPromptSelect, onCancel, onRetry,
+  images, pending, loading, session, workspaces = [], onDelete, onReference, onRestore, onPromptSelect, onCancel, onRetry, onBatchDelete, onBatchDownload, onBatchCopyTo, onBatchModeChange,
 }: SharedGalleryProps) {
   const { state } = useApp();
   const [expandedImageId, setExpandedImageId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchMode, setBatchMode] = useState(false);
+  const lastSelectedIdRef = useRef<string | null>(null);
+  const allPhotosRef = useRef<GalleryPhoto[]>([]);
 
   const outerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -681,6 +741,14 @@ export default function SharedGallery({
     }));
     return [...pendingPhotos, ...realPhotos];
   }, [images, pending]);
+
+  useEffect(() => {
+    allPhotosRef.current = allPhotos;
+  }, [allPhotos]);
+
+  useEffect(() => {
+    onBatchModeChange?.(batchMode);
+  }, [batchMode, onBatchModeChange]);
 
   const realPhotos = useMemo(
     () => allPhotos.filter((p) => p._image !== null).map((p) => p._image as GeneratedImageMeta),
@@ -758,6 +826,68 @@ export default function SharedGallery({
     setExpandedImageId(null);
   }, [onDelete]);
 
+  const exitBatchMode = useCallback(() => {
+    setBatchMode(false);
+    setSelectedIds(new Set());
+    lastSelectedIdRef.current = null;
+  }, []);
+
+  const handleSelect = useCallback((id: string, selected: boolean, shift?: boolean) => {
+    if (shift && selected && lastSelectedIdRef.current) {
+      const realIds = allPhotosRef.current.filter((p) => !p.isPending).map((p) => p.key);
+      const fromIdx = realIds.indexOf(lastSelectedIdRef.current);
+      const toIdx = realIds.indexOf(id);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [start, end] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+        const rangeIds = realIds.slice(start, end + 1);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          for (const rid of rangeIds) next.add(rid);
+          setBatchMode(next.size > 0);
+          return next;
+        });
+        lastSelectedIdRef.current = id;
+        return;
+      }
+    }
+    lastSelectedIdRef.current = selected ? id : null;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(id);
+      else next.delete(id);
+      setBatchMode(next.size > 0);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && expandedImageId === null && batchMode) exitBatchMode();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [expandedImageId, batchMode, exitBatchMode]);
+
+  const handleBatchDelete = useCallback(() => {
+    const ids = Array.from(selectedIds);
+    exitBatchMode();
+    onBatchDelete?.(ids);
+  }, [selectedIds, exitBatchMode, onBatchDelete]);
+
+  const handleBatchDownload = useCallback(() => {
+    onBatchDownload?.(Array.from(selectedIds));
+  }, [selectedIds, onBatchDownload]);
+
+  const handleBatchCopyTo = useCallback((targetWorkspaceId: string) => {
+    onBatchCopyTo?.(Array.from(selectedIds), targetWorkspaceId);
+  }, [selectedIds, onBatchCopyTo]);
+
+  const handleSelectAll = useCallback(() => {
+    const allRealIds = new Set(allPhotosRef.current.filter((p) => !p.isPending).map((p) => p.key));
+    setSelectedIds(allRealIds);
+    setBatchMode(true);
+  }, []);
+
   return (
     <>
       <div className="min-h-screen pt-14 sm:pt-16 pb-52" ref={outerRef}>
@@ -802,6 +932,9 @@ export default function SharedGallery({
                           onReference={onReference}
                           onRestore={onRestore}
                           onPromptSelect={onPromptSelect}
+                          isSelected={selectedIds.has(photo._image!.id)}
+                          onSelect={handleSelect}
+                          batchMode={batchMode}
                         />
                       )}
                     </div>
@@ -839,6 +972,23 @@ export default function SharedGallery({
           )
         )}
       </div>
+
+      <AnimatePresence>
+        {!isMobile && batchMode && (
+          <BatchSelectBar
+            count={selectedIds.size}
+            totalCount={allPhotos.filter((p) => !p.isPending).length}
+            onSelectAll={handleSelectAll}
+            onDownload={handleBatchDownload}
+            onDelete={handleBatchDelete}
+            workspaces={workspaces}
+            currentWorkspaceId=""
+            onCopyTo={handleBatchCopyTo}
+            onMoveTo={() => {}}
+            showMoveTo={false}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {lightboxImage && (

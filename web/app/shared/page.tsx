@@ -62,6 +62,7 @@ export default function SharedSpacePage() {
   const [sharedImages, setSharedImages] = useState<GeneratedImageMeta[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const [batchMode, setBatchMode] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [beamProps, setBeamProps] = useState<{ from: { x: number; y: number }; to: { x: number; y: number }; toSize: { width: number; height: number } } | null>(null);
   const promptSetterRef = useRef<((p: string) => void) | null>(null);
@@ -435,6 +436,48 @@ export default function SharedSpacePage() {
     setSharedImages((prev) => prev.filter((img) => img.id !== id));
   }, []);
 
+  const handleBatchCopyToShared = useCallback(async (ids: string[], targetWorkspaceId: string) => {
+    await Promise.all(
+      ids.map((id) =>
+        fetch(`/api/shared/images/${id}/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspaceId: targetWorkspaceId }),
+        })
+      )
+    );
+  }, []);
+
+  const handleBatchDeleteShared = useCallback((ids: string[]) => {
+    for (const id of ids) fetch(`/api/shared/images/${id}`, { method: "DELETE" }).catch(() => {});
+    const idSet = new Set(ids);
+    setSharedImages((prev) => prev.filter((img) => !idSet.has(img.id)));
+  }, []);
+
+  const handleBatchDownload = useCallback(async (ids: string[]) => {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const id of ids) {
+      const image = sharedImages.find((img) => img.id === id);
+      if (!image) continue;
+      const res = await fetch(`/api/images/${id}/download`);
+      if (!res.ok) continue;
+      const buffer = await res.arrayBuffer();
+      const slug = image.prompt.slice(0, 40).replace(/[^a-zA-Z0-9]/g, "_");
+      const ext = image.mimeType === "image/jpeg" ? "jpg" : "png";
+      zip.file(`${slug}_${id.slice(0, 6)}.${ext}`, buffer);
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = `homefield_${ids.length}_images.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+  }, [sharedImages]);
+
   const handleReference = useCallback(async (image: GeneratedImageMeta) => {
     const res = await fetch(`/api/images/${image.id}/download`);
     if (!res.ok) return;
@@ -474,6 +517,10 @@ export default function SharedSpacePage() {
         onPromptSelect={(p) => { promptSetterRef.current?.(p); }}
         onCancel={handleCancel}
         onRetry={handleRetry}
+        onBatchDelete={handleBatchDeleteShared}
+        onBatchDownload={handleBatchDownload}
+        onBatchCopyTo={handleBatchCopyToShared}
+        onBatchModeChange={setBatchMode}
       />
       <CommandBar
         onGenerate={handleGenerate}
@@ -481,6 +528,7 @@ export default function SharedSpacePage() {
         restoreRef={restoreRef}
         addImageRef={addImageRef}
         textareaRectRef={textareaRectRef}
+        batchMode={batchMode}
       />
       <MobilePromptSheet
         onGenerate={handleGenerate}

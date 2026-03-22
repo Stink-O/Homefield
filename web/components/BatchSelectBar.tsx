@@ -15,6 +15,7 @@ interface BatchSelectBarProps {
   currentWorkspaceId: string;
   onCopyTo: (targetWorkspaceId: string) => void;
   onMoveTo: (targetWorkspaceId: string) => void;
+  showMoveTo?: boolean;
 }
 
 export default function BatchSelectBar({
@@ -27,6 +28,7 @@ export default function BatchSelectBar({
   currentWorkspaceId,
   onCopyTo,
   onMoveTo,
+  showMoveTo = true,
 }: BatchSelectBarProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
@@ -111,7 +113,7 @@ export default function BatchSelectBar({
               </div>
 
               {/* Move to */}
-              <div className="relative" ref={moveRef}>
+              {showMoveTo && <div className="relative" ref={moveRef}>
                 <button
                   onClick={() => { setMoveMenuOpen((v) => !v); setCopyMenuOpen(false); }}
                   className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
@@ -133,7 +135,7 @@ export default function BatchSelectBar({
                     ))}
                   </div>
                 )}
-              </div>
+              </div>}
             </>
           )}
 

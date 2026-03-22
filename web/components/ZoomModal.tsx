@@ -14,13 +14,14 @@ interface ZoomModalProps {
   onNext?: () => void;
   sidebar?: React.ReactNode;
   zIndex?: number;
+  imageId?: string;
 }
 
 // Easing for zoom: smooth ease-out quart — feels like maps/Figma
 const ZOOM_EASE: [number, number, number, number] = [0.25, 1, 0.5, 1];
 const ZOOM_DURATION = 0.12;
 
-export default function ZoomModal({ src, alt, onClose, caption, onPrev, onNext, sidebar, zIndex = 400 }: ZoomModalProps) {
+export default function ZoomModal({ src, alt, onClose, caption, onPrev, onNext, sidebar, zIndex = 400, imageId }: ZoomModalProps) {
   // isZoomed is React state only for UI (cursor style, draggable, caption bar visibility).
   // Zoom % text is written directly to zoomPctRef — no re-render per frame during zoom.
   const [isZoomed, setIsZoomed] = useState(false);
@@ -29,6 +30,9 @@ export default function ZoomModal({ src, alt, onClose, caption, onPrev, onNext, 
   const [sidebarHeight, setSidebarHeight] = useState(220);
   const [isMobileView, setIsMobileView] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const [imgSrc, setImgSrc] = useState(src);
+  const [imgFailed, setImgFailed] = useState(false);
+  const imgRetries = useRef(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -80,6 +84,9 @@ export default function ZoomModal({ src, alt, onClose, caption, onPrev, onNext, 
     cancelAnim.current?.();
     cancelAnim.current = null;
     applyTransform(1, 0, 0);
+    setImgSrc(src);
+    setImgFailed(false);
+    imgRetries.current = 0;
   }, [src, applyTransform]);
 
   // Lock page scroll — pad by scrollbar width to prevent layout shift on open/close
@@ -219,6 +226,23 @@ export default function ZoomModal({ src, alt, onClose, caption, onPrev, onNext, 
     return () => ro.disconnect();
   }, [sidebar]);
 
+  const handleImgError = useCallback(() => {
+    // Don't retry data URLs (inline base64 — network retries won't help)
+    if (src.startsWith("data:") || imgRetries.current >= 3) {
+      setImgFailed(true);
+      if (imageId && !src.startsWith("data:")) {
+        fetch(`/api/images/${imageId}/load-error`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "full" }),
+        }).catch(() => {});
+      }
+      return;
+    }
+    imgRetries.current += 1;
+    setTimeout(() => setImgSrc(`${src}?_r=${imgRetries.current}`), imgRetries.current * 2000);
+  }, [src, imageId]);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -246,25 +270,39 @@ export default function ZoomModal({ src, alt, onClose, caption, onPrev, onNext, 
       onClick={(e) => { if (!isDragging) { e.stopPropagation(); onClose(); } }}
     >
       <div className={sidebar ? "absolute inset-0 sm:relative sm:inset-auto sm:flex-1 sm:h-auto flex items-center justify-center overflow-hidden pt-10 px-10 sm:p-6 sm:pb-6" : "relative flex items-center justify-center w-full h-full"} style={sidebar && isMobileView ? { paddingBottom: `${sidebarHeight + 16}px` } : undefined}>
-        <img
-          ref={imgRef}
-          src={src}
-          alt={alt}
-          draggable={!isZoomed}
-          onMouseDown={isZoomed ? handleMouseDown : undefined}
-          onDoubleClick={(e) => { e.stopPropagation(); reset(true); }}
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            transformOrigin: "center center",
-            willChange: "transform",
-            cursor: !isZoomed ? "default" : isDragging ? "grabbing" : "grab",
-            maxHeight: "100%",
-            maxWidth: "100%",
-            borderRadius: "8px",
-            objectFit: "contain",
-            userSelect: "none",
-          }}
-        />
+        {imgFailed ? (
+          <div className="flex flex-col items-center gap-3 text-white/40" onClick={(e) => e.stopPropagation()}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span className="text-sm">Failed to load image</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); imgRetries.current = 0; setImgFailed(false); setImgSrc(`${src}?_r=${Date.now()}`); }}
+              className="text-xs text-white/60 hover:text-white transition-colors underline"
+            >
+              Try again
+            </button>
+          </div>
+        ) : (
+          <img
+            ref={imgRef}
+            src={imgSrc}
+            alt={alt}
+            draggable={!isZoomed}
+            onMouseDown={isZoomed ? handleMouseDown : undefined}
+            onDoubleClick={(e) => { e.stopPropagation(); reset(true); }}
+            onClick={(e) => e.stopPropagation()}
+            onError={handleImgError}
+            style={{
+              transformOrigin: "center center",
+              willChange: "transform",
+              cursor: !isZoomed ? "default" : isDragging ? "grabbing" : "grab",
+              maxHeight: "100%",
+              maxWidth: "100%",
+              borderRadius: "8px",
+              objectFit: "contain",
+              userSelect: "none",
+            }}
+          />
+        )}
         <button
           onClick={(e) => { e.stopPropagation(); onClose(); }}
           className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors"

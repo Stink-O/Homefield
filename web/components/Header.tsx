@@ -297,10 +297,6 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
               aria-label="Templates"
             >
               <BookOpen size={18} />
-              <span
-                className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#a3e635]"
-                style={{ animation: "liveDot 2.4s ease-in-out infinite" }}
-              />
             </button>
           )}
 
@@ -311,12 +307,7 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
               className="hidden sm:flex lg:hidden items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium text-text-primary/80 transition-all duration-150 hover:text-text-primary hover:bg-[#a3e635]/8"
               style={{ border: "1px solid rgba(163,230,53,0.28)" }}
             >
-              <span
-                className="w-1.5 h-1.5 rounded-full bg-[#a3e635] shrink-0"
-                style={{ animation: "liveDot 2.4s ease-in-out infinite" }}
-              />
               Templates
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-[#a3e635]/55">new</span>
             </button>
           )}
 
@@ -352,12 +343,7 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
                   className="flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium text-text-primary/80 transition-all duration-150 hover:text-text-primary hover:bg-[#a3e635]/8"
                   style={{ border: "1px solid rgba(163,230,53,0.28)" }}
                 >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-[#a3e635] shrink-0"
-                    style={{ animation: "liveDot 2.4s ease-in-out infinite" }}
-                  />
                   Templates
-                  <span className="text-[9px] font-semibold uppercase tracking-widest text-[#a3e635]/55">new</span>
                 </button>
               </div>
             )}

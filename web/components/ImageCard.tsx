@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { Download, Maximize2, Copy, Check, Trash2, Wand2, ImagePlus, MoreVertical, ChevronRight } from "lucide-react";
@@ -44,6 +44,9 @@ function ImageCard({ image, index, onPromptSelect, onRestore, onReference, isSel
     : image.thumbnailBase64
       ? `data:image/jpeg;base64,${image.thumbnailBase64}`
       : "";
+  const [thumbSrc, setThumbSrc] = useState(thumbnailSrc);
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const thumbRetries = useRef(0);
   const modelLabel = MODELS.find((m) => m.id === image.model)?.label ?? image.model;
 
   const handleDownload = async (e: React.MouseEvent) => {
@@ -164,6 +167,26 @@ function ImageCard({ image, index, onPromptSelect, onRestore, onReference, isSel
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen]);
 
+  const handleThumbError = useCallback(() => {
+    // base64 data URLs don't benefit from network retries
+    if (!image.thumbnailUrl || thumbRetries.current >= 3) {
+      setThumbFailed(true);
+      if (image.thumbnailUrl) {
+        fetch(`/api/images/${image.id}/load-error`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "thumbnail" }),
+        }).catch(() => {});
+      }
+      return;
+    }
+    thumbRetries.current += 1;
+    setTimeout(
+      () => setThumbSrc(`${image.thumbnailUrl}?_r=${thumbRetries.current}`),
+      thumbRetries.current * 1500,
+    );
+  }, [image.thumbnailUrl, image.id]);
+
   return (
     <>
       <motion.div
@@ -177,9 +200,9 @@ function ImageCard({ image, index, onPromptSelect, onRestore, onReference, isSel
         className="@container group relative cursor-pointer overflow-hidden w-full h-full"
         onClick={handleCardClick}
       >
-        {thumbnailSrc ? (
-          <img src={thumbnailSrc} alt={image.prompt} className="block h-full w-full object-cover" draggable={false}
-            onError={(e) => { (e.target as HTMLImageElement).replaceWith(Object.assign(document.createElement("div"), { className: "w-full h-full flex items-center justify-center bg-white/5" })); }}
+        {!thumbFailed && thumbSrc ? (
+          <img src={thumbSrc} alt={image.prompt} className="block h-full w-full object-cover" draggable={false}
+            onError={handleThumbError}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-white/5">

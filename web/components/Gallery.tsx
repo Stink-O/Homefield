@@ -523,6 +523,7 @@ function GalleryLightbox({
       onNext={onNext}
       zIndex={200}
       sidebar={infoPanel}
+      imageId={image.id}
     />
   );
 }

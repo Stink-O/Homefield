@@ -4,7 +4,7 @@ import { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef, mem
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { Download, Copy, Check, Trash2, ImagePlus, Info, ChevronDown, SlidersHorizontal, Maximize2, MoreVertical, ChevronRight, Wand2 } from "lucide-react";
+import { Download, Copy, Check, Trash2, ImagePlus, Info, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, MoreVertical, ChevronRight, Wand2 } from "lucide-react";
 import type { Session } from "next-auth";
 import ShimmerPlaceholder from "./ShimmerPlaceholder";
 import BatchSelectBar from "./BatchSelectBar";
@@ -688,8 +688,15 @@ export default function SharedGallery({
   const [expandedImageId, setExpandedImageId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchMode, setBatchMode] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const lastSelectedIdRef = useRef<string | null>(null);
   const allPhotosRef = useRef<GalleryPhoto[]>([]);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 600);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const outerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -973,6 +980,40 @@ export default function SharedGallery({
           )
         )}
       </div>
+
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.div
+            key="scroll-top"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="fixed top-[70px] left-1/2 -translate-x-1/2 z-[150] p-[2px] rounded-2xl overflow-hidden"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+              style={{
+                position: "absolute",
+                width: "200%",
+                height: "200%",
+                top: "-50%",
+                left: "-50%",
+                background: "conic-gradient(from 0deg, transparent 0%, transparent 50%, rgba(163,230,53,0.4) 65%, rgba(163,230,53,1) 75%, rgba(163,230,53,0.4) 85%, transparent 100%)",
+              }}
+            />
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="relative glass-command flex items-center justify-center rounded-[14px] w-10 h-10 text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
+              aria-label="Scroll to top"
+            >
+              <ChevronUp size={17} strokeWidth={2.5} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {!isMobile && batchMode && (

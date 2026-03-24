@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef, memo } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { Download, Wand2, SlidersHorizontal, Info, ChevronDown, Copy, Check, Trash2, ImagePlus } from "lucide-react";
+import { Download, Wand2, SlidersHorizontal, Info, ChevronDown, ChevronUp, Copy, Check, Trash2, ImagePlus } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import ImageCard from "./ImageCard";
 import ShimmerPlaceholder from "./ShimmerPlaceholder";
@@ -536,6 +536,13 @@ export default memo(function Gallery({ pending, onPromptSelect, onRestore, onRef
   const lastSelectedIdRef = useRef<string | null>(null);
   const allPhotosRef = useRef<GalleryPhoto[]>([]);
   const loadMoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 600);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Container width measurement
   const outerRef = useRef<HTMLDivElement>(null);
@@ -565,6 +572,11 @@ export default memo(function Gallery({ pending, onPromptSelect, onRestore, onRef
   useEffect(() => {
     onBatchModeChange?.(batchMode);
   }, [batchMode, onBatchModeChange]);
+
+  useEffect(() => {
+    exitBatchMode();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentWorkspaceId]);
 
   const handleSelect = useCallback((id: string, selected: boolean, shift?: boolean) => {
     if (shift && selected && lastSelectedIdRef.current) {
@@ -954,6 +966,40 @@ export default memo(function Gallery({ pending, onPromptSelect, onRestore, onRef
             onCopyTo={handleBatchCopyTo}
             onMoveTo={handleBatchMoveTo}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.div
+            key="scroll-top"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="fixed top-[70px] left-1/2 -translate-x-1/2 z-[150] p-[2px] rounded-2xl overflow-hidden"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+              style={{
+                position: "absolute",
+                width: "200%",
+                height: "200%",
+                top: "-50%",
+                left: "-50%",
+                background: "conic-gradient(from 0deg, transparent 0%, transparent 50%, rgba(163,230,53,0.4) 65%, rgba(163,230,53,1) 75%, rgba(163,230,53,0.4) 85%, transparent 100%)",
+              }}
+            />
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="relative glass-command flex items-center justify-center rounded-[14px] w-10 h-10 text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
+              aria-label="Scroll to top"
+            >
+              <ChevronUp size={17} strokeWidth={2.5} />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 

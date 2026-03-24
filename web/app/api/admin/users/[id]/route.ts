@@ -14,16 +14,18 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
-  const { approved, role, password } = body as {
+  const { approved, role, password, username } = body as {
     approved?: boolean;
     role?: "admin" | "user";
     password?: string;
+    username?: string;
   };
 
   const updates: Record<string, unknown> = {};
   if (approved !== undefined) updates.approved = approved;
   if (role !== undefined) updates.role = role;
   if (password) updates.passwordHash = await bcrypt.hash(password, 12);
+  if (username?.trim()) updates.username = username.trim();
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });

@@ -101,3 +101,24 @@ export async function deleteTemplateThumb(thumbnailPath: string): Promise<void> 
   const root = path.join(process.cwd(), "..");
   await fs.unlink(path.join(root, thumbnailPath.replace(/\//g, path.sep))).catch(() => {});
 }
+
+const AUDIO_STORAGE_ROOT = path.join(process.cwd(), "..", "storage", "audio");
+
+export async function saveAudioFile(
+  userId: string,
+  trackId: string,
+  base64: string,
+  mimeType: string
+): Promise<string> {
+  const dir = path.join(AUDIO_STORAGE_ROOT, userId);
+  await fs.mkdir(dir, { recursive: true });
+  const ext = mimeType === "audio/wav" ? "wav" : "mp3";
+  const fileName = `${trackId}.${ext}`;
+  await fs.writeFile(path.join(dir, fileName), Buffer.from(base64, "base64"));
+  return `storage/audio/${userId}/${fileName}`;
+}
+
+export async function deleteAudioFile(filePath: string): Promise<void> {
+  const root = path.join(process.cwd(), "..");
+  await fs.unlink(path.join(root, filePath.replace(/\//g, path.sep))).catch(() => {});
+}

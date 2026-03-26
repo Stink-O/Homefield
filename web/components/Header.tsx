@@ -347,6 +347,15 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
                 </button>
               </div>
             )}
+            <div className="flex items-center">
+              <div className="w-px h-4 bg-[var(--border)] mx-1" />
+              <Link
+                href="/music"
+                className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium text-text-secondary/60 transition-all duration-150 hover:text-text-secondary"
+              >
+                Music
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -425,6 +434,13 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
             </button>
             {mobileMoreOpen && (
               <div className="absolute right-0 top-full mt-1 z-[200] w-52 rounded-xl border border-[var(--border)] bg-surface-elevated shadow-xl py-1">
+                <Link
+                  href="/music"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-primary hover:bg-[var(--border)] transition-colors"
+                >
+                  Music
+                </Link>
                 <button
                   onClick={() => { dispatch({ type: "TOGGLE_SETTINGS" }); setMobileMoreOpen(false); }}
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-primary hover:bg-[var(--border)] transition-colors"

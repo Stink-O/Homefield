@@ -8,6 +8,20 @@
       "when": 1773476347827,
       "tag": "0000_gorgeous_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773500000000,
+      "tag": "0001_add_tracks",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774000000000,
+      "tag": "0002_add_track_metadata",
+      "breakpoints": true
     }
   ]
 }

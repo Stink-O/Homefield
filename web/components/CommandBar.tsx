@@ -397,20 +397,21 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
                   >
                     {images.map((img, i) => (
                       <div key={i} className="relative inline-block flex-shrink-0">
-                        <img
-                          src={img.thumbnail}
-                          alt={`Reference ${i + 1}`}
-                          className={`h-14 w-14 rounded-lg object-cover border border-white/10 cursor-pointer transition-opacity ${img._blobUrl ? "opacity-40" : ""}`}
-                          onClick={() => { if (!img._blobUrl) setPreviewIndex(i); }}
-                          title="Click to preview"
-                        />
-                        {img._blobUrl && (
-                          <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                        {img._blobUrl ? (
+                          <div className="h-14 w-14 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
                             <svg className="animate-spin text-white/80" width="18" height="18" viewBox="0 0 24 24" fill="none">
                               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
                               <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                             </svg>
                           </div>
+                        ) : (
+                          <img
+                            src={img.thumbnail}
+                            alt={`Reference ${i + 1}`}
+                            className="h-14 w-14 rounded-lg object-cover border border-white/10 cursor-pointer"
+                            onClick={() => setPreviewIndex(i)}
+                            title="Click to preview"
+                          />
                         )}
                         <button
                           onClick={() => handleRemoveImage(i)}

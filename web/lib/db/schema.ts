@@ -57,3 +57,17 @@ export const templateFavourites = sqliteTable("template_favourites", {
 }, (t) => ({
   pk: primaryKey({ columns: [t.userId, t.templateId] }),
 }));
+
+export const tracks = sqliteTable("tracks", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  prompt: text("prompt").notNull(),
+  model: text("model").notNull(),
+  filePath: text("file_path").notNull(),
+  mimeType: text("mime_type").notNull().default("audio/mpeg"),
+  timestamp: integer("timestamp").notNull(),
+  lyrics: text("lyrics"),
+  description: text("description"),
+}, (t) => ({
+  userIdIdx: index("tracks_user_id_idx").on(t.userId),
+}));

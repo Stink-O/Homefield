@@ -8,6 +8,7 @@ export interface PendingJobEntry {
   quality: Quality;
   workspaceId: string;
   searchGrounding?: boolean;
+  images?: AttachedImage[];
   startedAt: number;
   failed?: boolean;
   errorMessage?: string;

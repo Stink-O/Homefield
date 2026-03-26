@@ -187,6 +187,7 @@ export default function Home() {
                 quality: job.quality,
                 workspaceId: job.workspaceId || "main",
                 searchGrounding: job.searchGrounding,
+                images: job.images,
                 errorMessage,
                 failedAt: Date.now(),
               });
@@ -201,9 +202,9 @@ export default function Home() {
                   model: job.model,
                   quality: job.quality,
                   searchGrounding: job.searchGrounding,
+                  images: job.images,
                   failed: true,
                   errorMessage,
-                  // images not available here — job survived a refresh before completing
                 },
                 ...prev,
               ]);
@@ -271,10 +272,11 @@ export default function Home() {
             quality: job.quality,
             workspaceId: job.workspaceId || "main",
             searchGrounding: job.searchGrounding,
+            images: job.images,
             errorMessage,
             failedAt: Date.now(),
           });
-          setPending((prev) => prev.map((p) => p.id === pendingId ? { ...p, failed: true, errorMessage } : p));
+          setPending((prev) => prev.map((p) => p.id === pendingId ? { ...p, images: job.images, failed: true, errorMessage } : p));
           abortControllersRef.current.delete(pendingId);
         }
       })();

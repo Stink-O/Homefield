@@ -38,6 +38,8 @@ export async function GET(
     ".jpeg": "image/jpeg",
     ".png": "image/png",
     ".webp": "image/webp",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
   };
   const contentType = mimeTypes[ext] ?? "application/octet-stream";
 

@@ -1,5 +1,5 @@
 import { ModelId, AspectRatio, AttachedImage, Quality } from "./types";
-import { addPendingJob, removePendingJob } from "./pendingJobs";
+import { addPendingJob, removePendingJob, trimImagesForStorage } from "./pendingJobs";
 
 export interface GenerateResult {
   imageId: string;
@@ -148,6 +148,7 @@ export async function generateImage(
     quality: (quality ?? "2K") as Quality,
     workspaceId: workspaceId ?? "",
     searchGrounding,
+    images: trimImagesForStorage(images),
     startedAt: Date.now(),
   });
 

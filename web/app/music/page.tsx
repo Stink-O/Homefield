@@ -9,7 +9,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { useWavesurfer } from "@wavesurfer/react";
 import {
   Play, Pause, Download, Trash2, ArrowLeft,
-  ImageIcon, X, ChevronDown, ChevronUp, FileText, Radio,
+  ImageIcon, X, ChevronDown, ChevronUp, FileText, Radio, Volume2,
 } from "lucide-react";
 
 interface Track {
@@ -87,15 +87,61 @@ function MiniWave({ active, seed }: { active: boolean; seed: number }) {
   );
 }
 
+/* ─── Toggle pill with tooltip ──────────────────────────────── */
+function TooltipPill({ label, hint, value, onToggle }: {
+  label: string; hint: string; value: boolean; onToggle: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div style={{ position: "relative" }}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+    >
+      <button onClick={onToggle} style={{
+        background: value ? "rgba(163,230,53,0.12)" : "rgba(255,255,255,0.04)",
+        border: value ? "1px solid rgba(163,230,53,0.25)" : "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 6, padding: "4px 10px", cursor: "pointer",
+        color: value ? "#a3e635" : "#71717a",
+        fontSize: 11, fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.1em",
+        transition: "all 0.15s",
+      }}>
+        {label}
+      </button>
+      {hovered && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 7px)", left: "50%",
+          transform: "translateX(-50%)",
+          background: "rgba(8,8,8,0.97)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 6, padding: "5px 10px",
+          fontSize: 11, color: "#a1a1aa", fontFamily: "var(--font-jetbrains-mono, monospace)",
+          whiteSpace: "nowrap", pointerEvents: "none", zIndex: 200,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
+        }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Audio player with circular progress ring ───────────────── */
 function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lyricsOpen, setLyricsOpen] = useState(false);
+  const [volume, setVolume] = useState<number>(() => {
+    if (typeof window === "undefined") return 0.8;
+    return parseFloat(localStorage.getItem("music-volume") ?? "0.8");
+  });
   const url = `/api/files/${track.filePath}`;
 
   const [waveReady, setWaveReady] = useState(false);
+  const ringRef = useRef<SVGCircleElement>(null);
+  const timeRef = useRef<HTMLSpanElement>(null);
 
-  const { wavesurfer, isPlaying, currentTime } = useWavesurfer({
+  const R = 30;
+  const circumference = 2 * Math.PI * R;
+
+  const { wavesurfer, isPlaying } = useWavesurfer({
     container: containerRef,
     url,
     height: 52,
@@ -110,13 +156,6 @@ function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
     interact: true,
   });
 
-  const duration = wavesurfer?.getDuration() ?? 0;
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  const R = 30;
-  const circumference = 2 * Math.PI * R;
-  const dashOffset = circumference * (1 - progress / 100);
-
   useEffect(() => { setLyricsOpen(false); setWaveReady(false); }, [track.id]);
 
   useEffect(() => {
@@ -125,13 +164,42 @@ function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
     return unsub;
   }, [wavesurfer]);
 
+  useEffect(() => {
+    if (!wavesurfer) return;
+    let rafId: number;
+    const tick = () => {
+      const t = wavesurfer.getCurrentTime();
+      const dur = wavesurfer.getDuration();
+      if (ringRef.current) {
+        const offset = dur > 0 ? circumference * (1 - t / dur) : circumference;
+        ringRef.current.style.strokeDashoffset = String(offset);
+      }
+      if (timeRef.current) {
+        timeRef.current.textContent = fmt(t);
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [wavesurfer, circumference]);
+
+  useEffect(() => {
+    wavesurfer?.setVolume(volume);
+  }, [wavesurfer, volume]);
+
+  const handleVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = parseFloat(e.target.value);
+    setVolume(v);
+    localStorage.setItem("music-volume", String(v));
+  };
+
   const toggle = () => wavesurfer?.playPause();
 
   return (
     <div style={{
-      background: "rgba(14,14,14,0.96)",
+      background: "var(--surface)",
       border: "1px solid rgba(163,230,53,0.18)",
-      borderRadius: 20, padding: "24px 28px",
+      borderRadius: 16, padding: "24px 28px",
       boxShadow: "0 0 0 1px rgba(163,230,53,0.05), inset 0 1px 0 rgba(255,255,255,0.04), 0 20px 60px rgba(0,0,0,0.7)",
       position: "relative", overflow: "hidden",
     }}>
@@ -143,10 +211,10 @@ function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
         <div style={{ position: "relative", width: 68, height: 68, flexShrink: 0 }}>
           <svg width={68} height={68} style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
             <circle cx={34} cy={34} r={R} fill="none" stroke="rgba(163,230,53,0.1)" strokeWidth={2} />
-            <circle cx={34} cy={34} r={R} fill="none" stroke="#a3e635" strokeWidth={2}
-              strokeDasharray={circumference} strokeDashoffset={dashOffset}
+            <circle ref={ringRef} cx={34} cy={34} r={R} fill="none" stroke="#a3e635" strokeWidth={2}
+              strokeDasharray={circumference} strokeDashoffset={circumference}
               strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 0.1s linear", filter: "drop-shadow(0 0 4px rgba(163,230,53,0.55))" }}
+              style={{ filter: "drop-shadow(0 0 4px rgba(163,230,53,0.55))" }}
             />
           </svg>
           <button onClick={toggle}
@@ -170,15 +238,15 @@ function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
             <span style={{
-              fontSize: 9, letterSpacing: "0.18em", fontFamily: "monospace",
+              fontSize: 11, letterSpacing: "0.18em", fontFamily: "var(--font-jetbrains-mono, monospace)",
               padding: "2px 6px", borderRadius: 3,
               background: "rgba(163,230,53,0.1)", color: "#a3e635",
               border: "1px solid rgba(163,230,53,0.2)",
             }}>{track.model === "lyria-3-clip-preview" ? "CLIP" : "PRO"}</span>
-            <span style={{ fontSize: 11, color: "#71717a", fontFamily: "monospace" }}>{fmt(duration)}</span>
+            <span style={{ fontSize: 13, color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)" }}>{fmt(wavesurfer?.getDuration() ?? 0)}</span>
           </div>
           <p style={{
-            color: "#c8c8c8", fontSize: 14, lineHeight: 1.45, margin: 0,
+            color: "#c8c8c8", fontSize: 15, lineHeight: 1.45, margin: 0,
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
           }}>{track.prompt}</p>
         </div>
@@ -213,13 +281,25 @@ function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
             })}
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-          <span style={{ fontSize: 10, color: "#71717a", fontFamily: "monospace" }}>{fmt(currentTime)}</span>
-          <a href={url} download={`homefield-${track.id.slice(0, 8)}.mp3`}
-            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#71717a", textDecoration: "none", fontFamily: "monospace", letterSpacing: "0.04em", transition: "color 0.15s" }}
-            onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = "#a3e635")}
-            onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = "#71717a")}
-          ><Download size={12} /> DOWNLOAD</a>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+          <span ref={timeRef} style={{ fontSize: 12, color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)" }}>0:00</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Volume2 size={11} color="#52525b" />
+              <input
+                type="range" min={0} max={1} step={0.01} value={volume}
+                onChange={handleVolume}
+                style={{
+                  width: 72, height: 3, accentColor: "#a3e635", cursor: "pointer",
+                }}
+              />
+            </div>
+            <a href={url} download={`homefield-${track.id.slice(0, 8)}.mp3`}
+              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: "#71717a", textDecoration: "none", fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.04em", transition: "color 0.15s" }}
+              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = "#a3e635")}
+              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = "#71717a")}
+            ><Download size={12} /> DOWNLOAD</a>
+          </div>
         </div>
       </div>
 
@@ -227,7 +307,7 @@ function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
       {/* Description */}
       {track.description && (
         <div style={{ marginTop: 18, padding: "10px 14px", background: "rgba(163,230,53,0.025)", borderRadius: 10, borderLeft: "2px solid rgba(163,230,53,0.28)" }}>
-          <p style={{ fontSize: 12, color: "#71717a", margin: 0, lineHeight: 1.7 }}>{track.description}</p>
+          <p style={{ fontSize: 13, color: "#71717a", margin: 0, lineHeight: 1.7 }}>{track.description}</p>
         </div>
       )}
 
@@ -235,7 +315,7 @@ function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
       {track.lyrics && (
         <div style={{ marginTop: 14 }}>
           <button onClick={() => setLyricsOpen(v => !v)}
-            style={{ background: "none", border: "none", padding: "5px 0", cursor: "pointer", color: "#71717a", display: "flex", alignItems: "center", gap: 5, fontSize: 10, fontFamily: "monospace", letterSpacing: "0.14em", textTransform: "uppercase", transition: "color 0.15s" }}
+            style={{ background: "none", border: "none", padding: "5px 0", cursor: "pointer", color: "#71717a", display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.14em", textTransform: "uppercase", transition: "color 0.15s" }}
             onMouseEnter={e => (e.currentTarget.style.color = "#a3e635")}
             onMouseLeave={e => (e.currentTarget.style.color = "#71717a")}
           >
@@ -248,7 +328,7 @@ function Player({ track, onDelete }: { track: Track; onDelete: () => void }) {
             transition: "grid-template-rows 0.28s ease",
           }}>
             <div style={{ overflow: "hidden" }}>
-              <pre style={{ fontSize: 13, color: "#909090", lineHeight: 1.85, margin: 0, whiteSpace: "pre-wrap", fontFamily: "var(--font-outfit, sans-serif)", padding: "10px 0 2px" }}>
+              <pre style={{ fontSize: 14, color: "#909090", lineHeight: 1.85, margin: 0, whiteSpace: "pre-wrap", fontFamily: "var(--font-outfit, sans-serif)", padding: "10px 0 2px" }}>
                 {track.lyrics}
               </pre>
             </div>
@@ -280,20 +360,20 @@ function TrackRow({ track, index, isActive, isDeleting, onLoad, onDelete }: {
         cursor: "pointer", transition: "all 0.14s", opacity: isDeleting ? 0.25 : 1,
       }}
     >
-      <span style={{ fontSize: 10, color: isActive ? "rgba(163,230,53,0.7)" : "#52525b", fontFamily: "monospace", minWidth: 18, userSelect: "none" }}>
+      <span style={{ fontSize: 12, color: isActive ? "rgba(163,230,53,0.7)" : "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", minWidth: 18, userSelect: "none" }}>
         {String(index + 1).padStart(2, "0")}
       </span>
 
       <MiniWave active={isActive} seed={seed} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: isActive ? "#d8d8d8" : "#a1a1aa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.14s" }}>
+        <div style={{ fontSize: 14, color: isActive ? "#d8d8d8" : "#a1a1aa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.14s" }}>
           {track.prompt}
         </div>
       </div>
 
       <span style={{
-        fontSize: 9, letterSpacing: "0.12em", fontFamily: "monospace",
+        fontSize: 11, letterSpacing: "0.12em", fontFamily: "var(--font-jetbrains-mono, monospace)",
         padding: "1px 5px", borderRadius: 3, flexShrink: 0,
         background: isActive ? "rgba(163,230,53,0.08)" : "rgba(255,255,255,0.03)",
         color: isActive ? "rgba(163,230,53,0.7)" : "#71717a",
@@ -303,7 +383,7 @@ function TrackRow({ track, index, isActive, isDeleting, onLoad, onDelete }: {
         {track.model === "lyria-3-clip-preview" ? "CLIP" : "PRO"}
       </span>
 
-      <span style={{ fontSize: 10, color: "#52525b", fontFamily: "monospace", flexShrink: 0, minWidth: 22, textAlign: "right" }}>
+      <span style={{ fontSize: 12, color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", flexShrink: 0, minWidth: 22, textAlign: "right" }}>
         {ago(track.timestamp)}
       </span>
 
@@ -337,6 +417,18 @@ export default function MusicPage() {
   const [deletingId,    setDeletingId]    = useState<string | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ preview: string; base64: string; mimeType: string } | null>(null);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [duration, setDuration] = useState(60);
+  const [bpm, setBpm] = useState<number | "">("");
+  const [intensity, setIntensity] = useState(0.5);
+  const [instrumentalMode, setInstrumentalMode] = useState(false);
+  const [userLyrics, setUserLyrics] = useState("");
+  const [watermark, setWatermark] = useState(true);
+  const [inputFiltering, setInputFiltering] = useState(true);
+  const [outputFilteringRecitation, setOutputFilteringRecitation] = useState(true);
+  const [outputFilteringVocalLikeness, setOutputFilteringVocalLikeness] = useState(true);
+  const [promptRewriter, setPromptRewriter] = useState(true);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const playerRef   = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -386,8 +478,20 @@ export default function MusicPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: prompt.trim(), model: selectedModel,
+          prompt: prompt.trim(),
+          model: selectedModel,
           ...(attachedImage && { imageData: attachedImage.base64, imageMimeType: attachedImage.mimeType }),
+          negativePrompt: negativePrompt.trim() || undefined,
+          duration,
+          bpm: bpm !== "" ? Number(bpm) : undefined,
+          intensity,
+          instrumentalMode,
+          userLyrics: !instrumentalMode && userLyrics.trim() ? userLyrics.trim() : undefined,
+          watermark,
+          inputFiltering,
+          outputFilteringRecitation,
+          outputFilteringVocalLikeness,
+          promptRewriter,
         }),
       });
       if (!res.ok) {
@@ -415,7 +519,7 @@ export default function MusicPage() {
     } finally {
       setGenerating(false);
     }
-  }, [prompt, selectedModel, generating, attachedImage]);
+  }, [prompt, selectedModel, generating, attachedImage, negativePrompt, duration, bpm, intensity, instrumentalMode, userLyrics, watermark, inputFiltering, outputFilteringRecitation, outputFilteringVocalLikeness, promptRewriter]);
 
   const deleteTrack = useCallback(async (id: string) => {
     setDeletingId(id);
@@ -432,53 +536,56 @@ export default function MusicPage() {
 
   return (
     <>
-      <style>{`
-        @keyframes oscPulse {
-          from { transform: scaleY(0.08); opacity: 0.25; }
-          to   { transform: scaleY(1);    opacity: 1;    }
-        }
-        .hf-textarea::placeholder { color: #2d2d2d; }
-      `}</style>
-
       <div style={{
         minHeight: "100vh",
-        background: "radial-gradient(ellipse 900px 700px at 5% 95%, rgba(163,230,53,0.022) 0%, transparent 65%), #0a0a0a",
-        color: "#e8e8e8",
+        color: "var(--text-primary)",
         fontFamily: "var(--font-outfit, sans-serif)",
       }}>
 
         {/* ── Header ── */}
-        <header style={{
-          position: "sticky", top: 0, zIndex: 50,
-          height: 54, display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 28px",
-          background: "rgba(10,10,10,0.94)", backdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <Image src="/logo-header.png" alt="HomeField" width={120} height={32} style={{ objectFit: "contain", height: 25, width: "auto" }} />
-            <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.07)" }} />
-            <span style={{ fontSize: 9, letterSpacing: "0.22em", fontFamily: "monospace", color: "rgba(163,230,53,0.7)", textTransform: "uppercase" }}>
-              Music Studio
-            </span>
+        <motion.header
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+          style={{
+            position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+            background: "var(--surface)",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <div style={{ display: "flex", height: 64, alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Image src="/logo-header.png" alt="HomeField" width={52} height={52} style={{ borderRadius: 12, width: 52, height: 52, objectFit: "cover", flexShrink: 0 }} />
+              <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.025em", color: "var(--text-primary)" }}>HomeField</span>
+              <span style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-secondary)" }}>Music Studio</span>
+            </div>
+            <Link href="/"
+              style={{ display: "flex", alignItems: "center", gap: 6, borderRadius: 8, padding: "6px 16px", fontSize: 14, fontWeight: 500, color: "rgba(113,113,122,0.6)", textDecoration: "none", transition: "color 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--text-secondary)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(113,113,122,0.6)")}
+            >
+              <ArrowLeft size={13} /> Studio
+            </Link>
           </div>
-          <Link href="/"
-            style={{ display: "flex", alignItems: "center", gap: 6, color: "#71717a", textDecoration: "none", fontSize: 11, letterSpacing: "0.06em", fontFamily: "monospace", transition: "color 0.15s" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#a3e635")}
-            onMouseLeave={e => (e.currentTarget.style.color = "#71717a")}
-          >
-            <ArrowLeft size={12} /> STUDIO
-          </Link>
-        </header>
+        </motion.header>
 
-        <main style={{ maxWidth: 780, margin: "0 auto", padding: "36px 24px 100px" }}>
+        <motion.main
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.38, ease: [0.22, 0.5, 0.36, 1] }}
+          style={{ maxWidth: 780, margin: "0 auto", padding: "100px 24px 100px", position: "relative" }}
+        >
+          <div aria-hidden style={{
+            position: "fixed", inset: 0, pointerEvents: "none", zIndex: -1,
+            background: "radial-gradient(ellipse 900px 700px at 5% 95%, rgba(163,230,53,0.022) 0%, transparent 65%)",
+          }} />
           <LayoutGroup>
 
           {/* ── Compose panel ── */}
           <div style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 16, overflow: "hidden", marginBottom: 18,
+            background: "var(--surface-elevated)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: 16, marginBottom: 18,
           }}>
             {/* Panel header row */}
             <div style={{
@@ -486,7 +593,7 @@ export default function MusicPage() {
               borderBottom: "1px solid rgba(255,255,255,0.08)",
               display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
-              <span style={{ fontSize: 9, letterSpacing: "0.2em", color: "#71717a", fontFamily: "monospace", textTransform: "uppercase" }}>
+              <span style={{ fontSize: 11, letterSpacing: "0.2em", color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>
                 Compose
               </span>
 
@@ -506,8 +613,8 @@ export default function MusicPage() {
                       {selectedModel === m.id && (
                         <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#a3e635", display: "inline-block", boxShadow: "0 0 7px rgba(163,230,53,0.9)", flexShrink: 0 }} />
                       )}
-                      <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", color: selectedModel === m.id ? "#a3e635" : "#71717a", transition: "color 0.15s" }}>{m.label}</span>
-                      <span style={{ fontSize: 9, color: selectedModel === m.id ? "rgba(163,230,53,0.45)" : "#52525b", fontFamily: "monospace" }}>{m.tag}</span>
+                      <span style={{ fontSize: 12, fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.1em", color: selectedModel === m.id ? "#a3e635" : "#71717a", transition: "color 0.15s" }}>{m.label}</span>
+                      <span style={{ fontSize: 11, color: selectedModel === m.id ? "rgba(163,230,53,0.45)" : "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)" }}>{m.tag}</span>
                     </span>
                   </button>
                 ))}
@@ -524,11 +631,148 @@ export default function MusicPage() {
               style={{
                 display: "block", width: "100%", background: "transparent", border: "none",
                 padding: "20px 22px", color: "#b8b8b8",
-                fontFamily: "var(--font-outfit, sans-serif)", fontSize: 15, lineHeight: 1.65,
+                fontFamily: "var(--font-outfit, sans-serif)", fontSize: 16, lineHeight: 1.65,
                 resize: "none", outline: "none", boxSizing: "border-box",
                 opacity: generating ? 0.35 : 1, transition: "opacity 0.2s",
               }}
             />
+
+            {/* Advanced section */}
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <button
+                onClick={() => setAdvancedOpen(v => !v)}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: "9px 22px", display: "flex", alignItems: "center", gap: 5, color: advancedOpen ? "#a3e635" : "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", transition: "color 0.15s", width: "100%", textAlign: "left" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#a3e635")}
+                onMouseLeave={e => (e.currentTarget.style.color = advancedOpen ? "#a3e635" : "#71717a")}
+              >
+                {advancedOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                Advanced
+              </button>
+              <div style={{ display: "grid", gridTemplateRows: advancedOpen ? "1fr" : "0fr", transition: "grid-template-rows 0.28s ease" }}>
+                <div style={{ overflow: advancedOpen ? "visible" : "hidden" }}>
+                  <div style={{ padding: "0 22px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+
+                    {/* Row 1: Vocal / Instrumental */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <span style={{ fontSize: 11, letterSpacing: "0.16em", color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>Mode</span>
+                      <div style={{ display: "flex", gap: 2, padding: 2, background: "rgba(0,0,0,0.3)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", alignSelf: "flex-start" }}>
+                        {[{ label: "Vocal", value: false }, { label: "Instrumental", value: true }].map(opt => (
+                          <button key={opt.label} onClick={() => setInstrumentalMode(opt.value)}
+                            style={{ position: "relative", border: "none", background: "none", cursor: "pointer", padding: "5px 13px", borderRadius: 6, display: "flex", alignItems: "center", gap: 6 }}
+                          >
+                            {instrumentalMode === opt.value && (
+                              <motion.div layoutId="mode-pill"
+                                style={{ position: "absolute", inset: 0, background: "rgba(163,230,53,0.09)", borderRadius: 6, border: "1px solid rgba(163,230,53,0.18)" }}
+                                transition={{ type: "spring", bounce: 0.12, duration: 0.38 }}
+                              />
+                            )}
+                            <span style={{ position: "relative", fontSize: 12, fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.1em", color: instrumentalMode === opt.value ? "#a3e635" : "#71717a", transition: "color 0.15s" }}>
+                              {instrumentalMode === opt.value && (
+                                <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: "#a3e635", boxShadow: "0 0 7px rgba(163,230,53,0.9)", marginRight: 5, verticalAlign: "middle" }} />
+                              )}
+                              {opt.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Row 2: User lyrics (Vocal only) */}
+                    {!instrumentalMode && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <span style={{ fontSize: 11, letterSpacing: "0.16em", color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>Lyrics</span>
+                        <textarea
+                          value={userLyrics} onChange={e => setUserLyrics(e.target.value)}
+                          placeholder="Optional lyrics to guide the vocal generation..."
+                          rows={3}
+                          className="hf-textarea"
+                          style={{
+                            display: "block", width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: 8, padding: "10px 12px", color: "#b8b8b8",
+                            fontFamily: "var(--font-outfit, sans-serif)", fontSize: 14, lineHeight: 1.6,
+                            resize: "vertical", outline: "none", boxSizing: "border-box",
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Row 3: Negative prompt */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <span style={{ fontSize: 11, letterSpacing: "0.16em", color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>Negative Prompt</span>
+                      <input
+                        type="text" value={negativePrompt} onChange={e => setNegativePrompt(e.target.value)}
+                        placeholder="Elements to avoid..."
+                        style={{
+                          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: 8, padding: "8px 12px", color: "#b8b8b8",
+                          fontFamily: "var(--font-outfit, sans-serif)", fontSize: 14,
+                          outline: "none", width: "100%", boxSizing: "border-box",
+                        }}
+                        onFocus={e => (e.currentTarget.style.borderColor = "rgba(163,230,53,0.25)")}
+                        onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                      />
+                    </div>
+
+                    {/* Row 4: Duration + BPM */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 11, letterSpacing: "0.16em", color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>Duration</span>
+                          <span style={{ fontSize: 12, color: "#a3e635", fontFamily: "var(--font-jetbrains-mono, monospace)" }}>{duration}s</span>
+                        </div>
+                        <input
+                          type="range" min={15} max={240} step={1} value={duration}
+                          onChange={e => setDuration(Number(e.target.value))}
+                          style={{ width: "100%", accentColor: "#a3e635", cursor: "pointer" }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <span style={{ fontSize: 11, letterSpacing: "0.16em", color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>BPM <span style={{ color: "#52525b", fontSize: 8 }}>(auto if empty)</span></span>
+                        <input
+                          type="number" min={60} max={200} value={bpm}
+                          onChange={e => setBpm(e.target.value === "" ? "" : Number(e.target.value))}
+                          placeholder="Auto"
+                          style={{
+                            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: 8, padding: "8px 12px", color: "#b8b8b8",
+                            fontFamily: "var(--font-outfit, sans-serif)", fontSize: 14,
+                            outline: "none", width: "100%", boxSizing: "border-box",
+                          }}
+                          onFocus={e => (e.currentTarget.style.borderColor = "rgba(163,230,53,0.25)")}
+                          onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 5: Intensity */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, letterSpacing: "0.16em", color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>Intensity</span>
+                        <span style={{ fontSize: 12, color: "#a3e635", fontFamily: "var(--font-jetbrains-mono, monospace)" }}>{intensity.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range" min={0} max={1} step={0.05} value={intensity}
+                        onChange={e => setIntensity(Number(e.target.value))}
+                        style={{ width: "100%", accentColor: "#a3e635", cursor: "pointer" }}
+                      />
+                    </div>
+
+                    {/* Row 6: Boolean toggles */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <span style={{ fontSize: 11, letterSpacing: "0.16em", color: "#71717a", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>Filters &amp; Features</span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <TooltipPill label="Watermark"         hint="Embed an inaudible watermark in the audio"         value={watermark}                    onToggle={() => setWatermark(v => !v)} />
+                        <TooltipPill label="Input filter"      hint="Block inappropriate or harmful input prompts"      value={inputFiltering}               onToggle={() => setInputFiltering(v => !v)} />
+                        <TooltipPill label="Filter recitation" hint="Prevent output that recites copyrighted material"  value={outputFilteringRecitation}    onToggle={() => setOutputFilteringRecitation(v => !v)} />
+                        <TooltipPill label="Filter vocal"      hint="Prevent output that mimics real vocal likenesses"  value={outputFilteringVocalLikeness} onToggle={() => setOutputFilteringVocalLikeness(v => !v)} />
+                        <TooltipPill label="Prompt rewriter"   hint="Auto-enhance your prompt for better results"      value={promptRewriter}               onToggle={() => setPromptRewriter(v => !v)} />
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Action bar */}
             <div style={{
@@ -551,7 +795,7 @@ export default function MusicPage() {
                     />
                     <span
                       onClick={() => setImagePreviewOpen(true)}
-                      style={{ fontSize: 10, color: "rgba(163,230,53,0.65)", fontFamily: "monospace", letterSpacing: "0.08em", cursor: "zoom-in" }}
+                      style={{ fontSize: 12, color: "rgba(163,230,53,0.65)", fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.08em", cursor: "zoom-in" }}
                     >IMG</span>
                     <button onClick={() => { setAttachedImage(null); sessionStorage.removeItem("music:image"); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "rgba(163,230,53,0.4)", display: "flex", lineHeight: 1 }}>
                       <X size={11} />
@@ -560,7 +804,7 @@ export default function MusicPage() {
                 ) : (
                   <motion.button key="add-img" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={() => fileInputRef.current?.click()}
-                    style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "5px 10px", color: "#71717a", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.08em", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, transition: "color 0.14s, border-color 0.14s" }}
+                    style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "5px 10px", color: "#71717a", fontSize: 12, fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.08em", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, transition: "color 0.14s, border-color 0.14s" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#a3e635"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(163,230,53,0.2)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#71717a"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)"; }}
                   >
@@ -573,6 +817,11 @@ export default function MusicPage() {
                 <button
                   onClick={() => {
                     setPrompt(""); setAttachedImage(null);
+                    setNegativePrompt(""); setDuration(60); setBpm(""); setIntensity(0.5);
+                    setInstrumentalMode(false); setUserLyrics("");
+                    setWatermark(true); setInputFiltering(true);
+                    setOutputFilteringRecitation(true); setOutputFilteringVocalLikeness(true);
+                    setPromptRewriter(true); setAdvancedOpen(false);
                     localStorage.removeItem("music:prompt");
                     sessionStorage.removeItem("music:image");
                   }}
@@ -584,14 +833,14 @@ export default function MusicPage() {
               )}
 
               <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.1)", fontFamily: "monospace" }}>{!generating && "⌘↵"}</span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.1)", fontFamily: "var(--font-jetbrains-mono, monospace)" }}>{!generating && "⌘↵"}</span>
 
               <button onClick={generate} disabled={!canGenerate}
                 style={{
                   background: canGenerate ? "#a3e635" : "rgba(163,230,53,0.1)",
                   color: canGenerate ? "#000" : "rgba(163,230,53,0.28)",
                   border: "none", borderRadius: 8, padding: "9px 22px",
-                  fontSize: 12, fontFamily: "var(--font-outfit, sans-serif)", fontWeight: 700,
+                  fontSize: 13, fontFamily: "var(--font-outfit, sans-serif)", fontWeight: 700,
                   letterSpacing: "0.06em", cursor: canGenerate ? "pointer" : "not-allowed",
                   display: "flex", alignItems: "center", gap: 7, transition: "all 0.15s",
                   boxShadow: canGenerate ? "0 0 18px rgba(163,230,53,0.18)" : "none",
@@ -619,7 +868,7 @@ export default function MusicPage() {
           <AnimatePresence>
             {error && (
               <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}
-                style={{ background: "rgba(239,68,68,0.055)", border: "1px solid rgba(239,68,68,0.14)", borderRadius: 10, padding: "10px 16px", color: "rgba(239,68,68,0.75)", fontSize: 13, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                style={{ background: "rgba(239,68,68,0.055)", border: "1px solid rgba(239,68,68,0.14)", borderRadius: 10, padding: "10px 16px", color: "rgba(239,68,68,0.75)", fontSize: 14, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}
               >
                 {error}
                 <button onClick={() => setError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(239,68,68,0.35)", display: "flex", padding: 2 }}><X size={13} /></button>
@@ -641,10 +890,10 @@ export default function MusicPage() {
                 <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at center bottom, rgba(163,230,53,0.035) 0%, transparent 65%)", pointerEvents: "none" }} />
                 <OscWave />
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, position: "relative" }}>
-                  <span style={{ fontSize: 10, color: "rgba(163,230,53,0.55)", fontFamily: "monospace", letterSpacing: "0.18em", textTransform: "uppercase" }}>
+                  <span style={{ fontSize: 12, color: "rgba(163,230,53,0.55)", fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.18em", textTransform: "uppercase" }}>
                     {selectedModel === "lyria-3-clip-preview" ? "Lyria 3 Clip" : "Lyria 3 Pro"}
                   </span>
-                  <span style={{ fontSize: 10, color: "#52525b", fontFamily: "monospace", letterSpacing: "0.1em" }}>composing...</span>
+                  <span style={{ fontSize: 12, color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.1em" }}>composing...</span>
                 </div>
               </motion.div>
             )}
@@ -665,10 +914,10 @@ export default function MusicPage() {
 
           {/* ── Session list ── */}
           {tracks.length > 0 && (
-            <motion.div layout="position" transition={{ layout: { duration: 0.3, ease: [0.22, 0.5, 0.36, 1] } }} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, overflow: "hidden" }}>
+            <motion.div layout="position" transition={{ layout: { duration: 0.3, ease: [0.22, 0.5, 0.36, 1] } }} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
               <div style={{ padding: "11px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 9, letterSpacing: "0.2em", color: "#52525b", fontFamily: "monospace", textTransform: "uppercase" }}>Session</span>
-                <span style={{ fontSize: 10, color: "#52525b", fontFamily: "monospace" }}>{tracks.length} track{tracks.length !== 1 ? "s" : ""}</span>
+                <span style={{ fontSize: 11, letterSpacing: "0.2em", color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>Session</span>
+                <span style={{ fontSize: 12, color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)" }}>{tracks.length} track{tracks.length !== 1 ? "s" : ""}</span>
               </div>
               <AnimatePresence initial={false}>
                 {tracks.map((t, i) => (
@@ -701,14 +950,14 @@ export default function MusicPage() {
               <div style={{ width: 42, height: 42, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Radio size={16} color="#52525b" />
               </div>
-              <span style={{ fontSize: 10, color: "#52525b", fontFamily: "monospace", letterSpacing: "0.14em", textTransform: "uppercase" }}>
+              <span style={{ fontSize: 12, color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
                 No tracks yet
               </span>
             </motion.div>
           )}
           </LayoutGroup>
 
-        </main>
+        </motion.main>
       </div>
 
       {/* Image preview modal */}
@@ -756,7 +1005,7 @@ export default function MusicPage() {
                   position: "absolute", bottom: -44, left: "50%", transform: "translateX(-50%)",
                   background: "none", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8,
                   padding: "6px 14px", cursor: "pointer", color: "rgba(239,68,68,0.6)",
-                  fontSize: 12, fontFamily: "monospace", letterSpacing: "0.08em",
+                  fontSize: 13, fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.08em",
                   display: "flex", alignItems: "center", gap: 5, transition: "color 0.15s, border-color 0.15s",
                 }}
                 onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.borderColor = "rgba(239,68,68,0.5)"; }}

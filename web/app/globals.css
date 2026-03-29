@@ -304,3 +304,13 @@ body {
 [data-theme="light"] .gallery-slider::-moz-range-track {
   background: rgba(0, 0, 0, 0.15);
 }
+
+/* ── Music Studio ── */
+@keyframes oscPulse {
+  from { transform: scaleY(0.08); opacity: 0.25; }
+  to   { transform: scaleY(1);    opacity: 1;    }
+}
+
+.hf-textarea::placeholder {
+  color: var(--text-secondary);
+}

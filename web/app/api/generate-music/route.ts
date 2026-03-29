@@ -112,19 +112,48 @@ async function callLyria(
     imageData?: string;
     imageMimeType?: string;
     cancelSignal?: AbortSignal;
+    negativePrompt?: string;
+    duration?: number;
+    bpm?: number;
+    intensity?: number;
+    instrumentalMode?: boolean;
+    userLyrics?: string;
+    watermark?: boolean;
+    inputFiltering?: boolean;
+    outputFilteringRecitation?: boolean;
+    outputFilteringVocalLikeness?: boolean;
+    promptRewriter?: boolean;
   } = {}
 ): Promise<{ base64: string; mimeType: string; lyrics?: string; description?: string }> {
-  const { model = "lyria-3-pro-preview", imageData, imageMimeType, cancelSignal } = options;
+  const {
+    model = "lyria-3-pro-preview",
+    imageData, imageMimeType, cancelSignal,
+    negativePrompt, duration, bpm, intensity, instrumentalMode, userLyrics,
+    watermark, inputFiltering, outputFilteringRecitation, outputFilteringVocalLikeness, promptRewriter,
+  } = options;
 
   const accessToken = await getAccessToken(sa);
   const url = `https://aiplatform.googleapis.com/v1beta1/projects/${sa.project_id}/locations/global/interactions`;
 
-  const input: Array<Record<string, string>> = [{ type: "text", text: prompt }];
+  const promptParts: string[] = [prompt];
+  if (instrumentalMode)               promptParts.push("instrumental, no vocals");
+  if (bpm != null)                    promptParts.push(`${bpm} BPM`);
+  if (duration != null)               promptParts.push(`approximately ${duration} seconds`);
+  if (intensity != null && intensity !== 0.5) {
+    const label = intensity < 0.3 ? "low intensity" : intensity > 0.7 ? "high intensity" : "medium intensity";
+    promptParts.push(label);
+  }
+  if (negativePrompt)                 promptParts.push(`avoid: ${negativePrompt}`);
+  if (userLyrics && !instrumentalMode) promptParts.push(`\n\nLyrics:\n${userLyrics}`);
+
+  const fullPrompt = promptParts.join(", ").replace(", \n\n", "\n\n");
+
+  const input: Array<Record<string, string>> = [{ type: "text", text: fullPrompt }];
   if (imageData && imageMimeType) {
     input.push({ type: "image", mime_type: imageMimeType, data: imageData });
   }
 
-  const body = { model, input };
+  const body: Record<string, unknown> = { model, input };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LYRIA_TIMEOUT_MS);
@@ -230,11 +259,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { prompt, model, imageData, imageMimeType } = body as {
-    prompt: unknown;
-    model: unknown;
-    imageData: unknown;
-    imageMimeType: unknown;
+  const {
+    prompt, model, imageData, imageMimeType,
+    negativePrompt, duration, bpm, intensity, instrumentalMode, userLyrics,
+    watermark, inputFiltering, outputFilteringRecitation, outputFilteringVocalLikeness, promptRewriter,
+  } = body as {
+    prompt: unknown; model: unknown; imageData: unknown; imageMimeType: unknown;
+    negativePrompt: unknown; duration: unknown; bpm: unknown; intensity: unknown;
+    instrumentalMode: unknown; userLyrics: unknown;
+    watermark: unknown; inputFiltering: unknown;
+    outputFilteringRecitation: unknown; outputFilteringVocalLikeness: unknown; promptRewriter: unknown;
   };
 
   if (typeof prompt !== "string" || !prompt.trim()) {
@@ -251,6 +285,29 @@ export async function POST(req: NextRequest) {
     typeof model === "string" && VALID_MODELS.includes(model as LyriaModel)
       ? (model as LyriaModel)
       : "lyria-3-pro-preview";
+
+  // Validate and coerce optional advanced params
+  if (negativePrompt != null && typeof negativePrompt !== "string") {
+    return NextResponse.json({ error: "Invalid negativePrompt" }, { status: 400 });
+  }
+  const validDuration = duration != null ? Number(duration) : 60;
+  if (!isFinite(validDuration) || validDuration < 15 || validDuration > 240) {
+    return NextResponse.json({ error: "Duration must be between 15 and 240" }, { status: 400 });
+  }
+  let validBpm: number | undefined;
+  if (bpm != null) {
+    validBpm = Number(bpm);
+    if (!isFinite(validBpm) || validBpm < 60 || validBpm > 200) {
+      return NextResponse.json({ error: "BPM must be between 60 and 200" }, { status: 400 });
+    }
+  }
+  const validIntensity = intensity != null ? Number(intensity) : 0.5;
+  if (!isFinite(validIntensity) || validIntensity < 0 || validIntensity > 1) {
+    return NextResponse.json({ error: "Intensity must be between 0 and 1" }, { status: 400 });
+  }
+  if (userLyrics != null && typeof userLyrics !== "string") {
+    return NextResponse.json({ error: "Invalid userLyrics" }, { status: 400 });
+  }
 
   // Validate optional image
   let validatedImage: { data: string; mimeType: string } | null = null;
@@ -288,6 +345,17 @@ export async function POST(req: NextRequest) {
         imageData: validatedImage?.data,
         imageMimeType: validatedImage?.mimeType,
         cancelSignal: genController.signal,
+        negativePrompt: typeof negativePrompt === "string" && negativePrompt.trim() ? negativePrompt.trim() : undefined,
+        duration: validDuration,
+        bpm: validBpm,
+        intensity: validIntensity,
+        instrumentalMode: instrumentalMode === true,
+        userLyrics: typeof userLyrics === "string" && userLyrics.trim() ? userLyrics.trim() : undefined,
+        watermark: watermark !== false,
+        inputFiltering: inputFiltering !== false,
+        outputFilteringRecitation: outputFilteringRecitation !== false,
+        outputFilteringVocalLikeness: outputFilteringVocalLikeness !== false,
+        promptRewriter: promptRewriter !== false,
       });
 
       const filePath = await saveAudioFile(userId, trackId, result.base64, result.mimeType);

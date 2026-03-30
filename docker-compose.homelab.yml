@@ -1,0 +1,13 @@
+services:
+  homefield:
+    image: ghcr.io/kyleg/homefield:latest
+    container_name: homefield
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./homefield.env
+    volumes:
+      - ./storage:/app/storage
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"

@@ -1,6 +1,6 @@
 services:
   homefield:
-    image: ghcr.io/kyleg/homefield:latest
+    image: ghcr.io/stink-o/homefield:latest
     container_name: homefield
     restart: unless-stopped
     ports:

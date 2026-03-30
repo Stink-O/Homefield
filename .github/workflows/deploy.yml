@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: kyleg/homefield
+  IMAGE_NAME: stink-o/homefield
 
 jobs:
   build-and-push:

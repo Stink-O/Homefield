@@ -7,6 +7,7 @@ A self-hosted AI image generation studio built on Google Vertex AI. Generate ima
 ## Features
 
 - **Two generation models** — Nano Banana 2 (fast) and Nano Banana Pro (flagship), both powered by Google Gemini image generation
+- **Music generation** — text-to-music via Google Lyria with BPM, duration, intensity, and lyrics controls
 - **Reference images** — attach up to 14 images per prompt to guide style, composition, or subject
 - **Aspect ratios & quality** — 11 aspect ratio presets and 1K / 2K / 4K output resolution
 - **Batch generation** — run multiple generations from a single prompt simultaneously
@@ -25,7 +26,7 @@ A self-hosted AI image generation studio built on Google Vertex AI. Generate ima
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 14 (App Router) |
+| Framework | Next.js (App Router) |
 | Language | TypeScript |
 | Styling | Tailwind CSS |
 | Animation | Framer Motion |
@@ -37,6 +38,47 @@ A self-hosted AI image generation studio built on Google Vertex AI. Generate ima
 | Real-time | Server-Sent Events (SSE) |
 
 ---
+
+## Self-Hosting with Docker
+
+The recommended way to run HomeField in production is via Docker with auto-updates through GitHub Actions and Watchtower.
+
+### 1. Authenticate with GHCR (one-time)
+
+Since the image is private, your server needs a GitHub PAT with `read:packages` scope:
+
+```bash
+echo YOUR_GITHUB_PAT | docker login ghcr.io -u Stink-O --password-stdin
+```
+
+Generate a PAT at GitHub > Settings > Developer settings > Personal access tokens.
+
+### 2. Create `homefield.env` in the repo root (never committed)
+
+| Variable | Description |
+|---|---|
+| `AUTH_SECRET` | Session signing key. Generate with `openssl rand -base64 32` |
+| `AUTH_TRUST_HOST` | Set to `true` |
+| `AUTH_URL` | The URL your app is served from, e.g. `http://your-server-ip:3000` |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | Full service account JSON as a single line string |
+| `GENERATION_PROVIDER` | `vertex` (default) or `replicate` |
+| `REPLICATE_API_TOKEN` | Required only if using `GENERATION_PROVIDER=replicate` |
+
+### 3. Start the container
+
+```bash
+docker compose -f docker-compose.homelab.yml up -d
+```
+
+The app will be available at port 3000. The SQLite database and all generated files are stored in `./storage` on the host.
+
+### Auto-updates
+
+Every push to `master` triggers a GitHub Actions build that pushes a new image to GHCR (`ghcr.io/stink-o/homefield:latest`). Watchtower detects the updated image and restarts the container automatically — no manual steps required.
+
+---
+
+## Local Development
 
 ## Requirements
 
@@ -52,7 +94,7 @@ A self-hosted AI image generation studio built on Google Vertex AI. Generate ima
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/homefield.git
+git clone https://github.com/Stink-O/Homefield.git
 cd homefield/web
 npm install
 ```

@@ -187,6 +187,9 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
           <span className="hidden xl:inline-block text-[11px] font-medium uppercase tracking-widest text-text-secondary">
             Studio
           </span>
+          <span className="hidden xl:inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#a3e635]/10 text-[#a3e635] border border-[#a3e635]/20">
+            test
+          </span>
 
           {/* Workspace dropdown — private mode only */}
           {!isSharedMode && (

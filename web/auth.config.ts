@@ -14,9 +14,11 @@ export const authConfig: NextAuthConfig = {
       // Always allow auth endpoints and login page
       if (
         path === "/login" ||
+        path === "/setup" ||
         path.startsWith("/api/auth") ||
         path.startsWith("/api/files") ||
-        path === "/api/register"
+        path === "/api/register" ||
+        path === "/api/setup"
       ) {
         return true;
       }

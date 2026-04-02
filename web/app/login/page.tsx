@@ -17,6 +17,7 @@ export default async function LoginPage() {
           <Image src="/logo-header.png" alt="HomeField" width={120} height={40} />
         </div>
         <LoginForm />
+        <p className="mt-8 text-center text-xs text-white/20">auto-update test</p>
       </div>
     </div>
   );

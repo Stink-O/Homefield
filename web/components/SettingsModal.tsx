@@ -24,16 +24,40 @@ export default function SettingsModal() {
   const importRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
-    // Images are now stored server-side. Export is not yet implemented.
-    console.info("[HomeField] Server-side export not yet implemented.");
-    setExporting(false);
+    setExporting(true);
+    try {
+      const res = await fetch("/api/export");
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "homefield-export.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Import from old IndexedDB backup not yet implemented for server model.
+    const file = e.target.files?.[0];
     e.target.value = "";
-    setImportStatus("error");
-    setTimeout(() => setImportStatus(null), 3000);
+    if (!file) return;
+    setImportStatus("importing");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/import", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Import failed");
+      setImportStatus("done");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch {
+      setImportStatus("error");
+      setTimeout(() => setImportStatus(null), 3000);
+    }
   };
 
   if (!state.settingsOpen) return null;

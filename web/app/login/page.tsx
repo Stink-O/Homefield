@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { LoginForm } from "./LoginForm";
 import Image from "next/image";

@@ -48,9 +48,11 @@ export default function SettingsModal() {
     if (!file) return;
     setImportStatus("importing");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/import", { method: "POST", body: formData });
+      const res = await fetch("/api/import", {
+        method: "POST",
+        body: file,
+        headers: { "Content-Type": "application/zip" },
+      });
       if (!res.ok) throw new Error("Import failed");
       setImportStatus("done");
       setTimeout(() => window.location.reload(), 1500);

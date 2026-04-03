@@ -34,25 +34,15 @@ interface Manifest {
   images: ManifestImage[];
 }
 
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
-  let formData: FormData;
-  try {
-    formData = await req.formData();
-  } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
-
-  const file = formData.get("file");
-  if (!file || !(file instanceof Blob)) {
-    return NextResponse.json({ error: "No file provided" }, { status: 400 });
-  }
-
   let zip: JSZip;
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await req.arrayBuffer());
     zip = await JSZip.loadAsync(buffer);
   } catch {
     return NextResponse.json({ error: "Invalid ZIP file" }, { status: 400 });

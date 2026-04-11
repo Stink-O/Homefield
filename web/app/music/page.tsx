@@ -231,22 +231,22 @@ export default function MusicPage() {
           style={{ flexShrink: 0, height: 56, background: "var(--surface)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", zIndex: 50 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Image src="/logo-header.png" alt="HomeField" width={44} height={44} style={{ borderRadius: 10, width: 44, height: 44, objectFit: "cover", flexShrink: 0 }} />
-            <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.025em", color: "var(--text-primary)" }}>HomeField</span>
-            <span style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-secondary)" }}>Music Studio</span>
+            <Image src="/logo-header.png" alt="HomeField" width={36} height={36} style={{ borderRadius: 8, width: 36, height: 36, objectFit: "cover", flexShrink: 0 }} />
+            {!isMobile && <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.025em", color: "var(--text-primary)" }}>HomeField</span>}
+            <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-secondary)" }}>Music Studio</span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 2 : 6 }}>
             <Link href="/"
-              style={{ display: "flex", alignItems: "center", gap: 5, borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 500, color: "rgba(113,113,122,0.6)", textDecoration: "none", transition: "color 0.15s" }}
+              style={{ display: "flex", alignItems: "center", gap: 5, borderRadius: 8, padding: isMobile ? "6px 8px" : "6px 14px", fontSize: 13, fontWeight: 500, color: "rgba(113,113,122,0.6)", textDecoration: "none", transition: "color 0.15s" }}
               onMouseEnter={e => (e.currentTarget.style.color = "var(--text-secondary)")}
               onMouseLeave={e => (e.currentTarget.style.color = "rgba(113,113,122,0.6)")}
             >
-              <ArrowLeft size={12} /> Studio
+              <ArrowLeft size={12} />{!isMobile && " Studio"}
             </Link>
 
             {username && (
-              <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(163,230,53,0.12)", border: "1px solid rgba(163,230,53,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#a3e635", flexShrink: 0, userSelect: "none" }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(163,230,53,0.12)", border: "1px solid rgba(163,230,53,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#a3e635", flexShrink: 0, userSelect: "none" }}>
                 {username[0].toUpperCase()}
               </div>
             )}
@@ -259,7 +259,7 @@ export default function MusicPage() {
               <Settings size={15} />
             </Link>
 
-            {userRole === "admin" && (
+            {userRole === "admin" && !isMobile && (
               <Link href="/admin"
                 style={{ fontSize: 11, fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.1em", padding: "4px 10px", borderRadius: 6, background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", textDecoration: "none", transition: "all 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "rgba(251,191,36,0.18)"; }}

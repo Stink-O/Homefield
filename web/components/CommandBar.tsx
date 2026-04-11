@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Plus, X, Globe } from "lucide-react";
+import { Sparkles, Plus, Globe } from "lucide-react";
+import { SortableImageStrip, type SortableImage } from "./SortableImageStrip";
 import ZoomModal from "./ZoomModal";
 import Tooltip from "./Tooltip";
 import { useApp } from "@/contexts/AppContext";
@@ -14,6 +15,7 @@ import QualitySelector from "./QualitySelector";
 import BatchSizeSelector from "./BatchSizeSelector";
 
 interface AttachedImageWithThumb extends AttachedImage {
+  id?: string;
   thumbnail: string;
   _blobUrl?: string; // temporary blob URL while encoding is in progress
 }
@@ -22,7 +24,7 @@ interface CommandBarProps {
   onGenerate: (prompt: string, images?: AttachedImage[]) => void;
   promptRef?: React.MutableRefObject<((p: string) => void) | null>;
   restoreRef?: React.MutableRefObject<((prompt: string, images: AttachedImageWithThumb[]) => void) | null>;
-  addImageRef?: React.MutableRefObject<((dataUrl: string) => void) | null>;
+  addImageRef?: React.MutableRefObject<((url: string, mimeType?: string) => void) | null>;
   textareaRectRef?: React.MutableRefObject<(() => DOMRect | null) | null>;
   batchMode?: boolean;
 }
@@ -79,7 +81,7 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
     const savedPrompt = localStorage.getItem("lastPrompt");
     if (savedPrompt) setPrompt(savedPrompt);
     loadDraftImages().then((imgs) => {
-      if (imgs.length > 0) setImages(imgs);
+      if (imgs.length > 0) setImages(imgs.map(img => ({ ...img, id: crypto.randomUUID() })));
     });
   }, []);
 
@@ -100,7 +102,7 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
       restoreRef.current = (p: string, imgs: AttachedImageWithThumb[]) => {
         setPrompt(p);
         localStorage.setItem("lastPrompt", p);
-        setImages(imgs);
+        setImages(imgs.map(img => ({ ...img, id: crypto.randomUUID() })));
       };
     }
     return () => {
@@ -121,26 +123,47 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
     });
   }, []);
 
-  const addImage = useCallback(async (dataUrl: string) => {
-    const [meta, base64Data] = dataUrl.split(",");
-    const mimeMatch = meta.match(/data:([^;]+)/);
-    const mime = mimeMatch ? mimeMatch[1] : "image/png";
+  const addImage = useCallback(async (url: string, mimeType?: string) => {
+    const isBlobUrl = url.startsWith("blob:");
+    const mime = mimeType ?? (isBlobUrl ? "image/png" : (url.match(/data:([^;]+)/)?.[1] ?? "image/png"));
+    const id = crypto.randomUUID();
+    const marker = `pending:${id}`;
 
-    // Fetch as blob so createImageBitmap can decode off the main thread
-    const blob = await fetch(dataUrl).then((r) => r.blob());
-    const thumbnail = await generateRefThumbnail(blob);
-
+    // Show spinner placeholder immediately so the strip responds at once
     setImages((prev) => {
       if (prev.length >= maxImages) return prev;
-      const next = [...prev, { base64: base64Data, mimeType: mime, thumbnail }];
-      return next;
+      return [...prev, { id, base64: "", mimeType: mime, thumbnail: "", _blobUrl: marker }];
     });
+
+    try {
+      const blob = await fetch(url).then((r) => r.blob());
+      const [thumbnail, base64] = await Promise.all([
+        generateRefThumbnail(blob),
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
+          reader.onerror = () => reject(new Error("FileReader failed"));
+          reader.readAsDataURL(blob);
+        }),
+      ]);
+      setImages((prev) => {
+        const idx = prev.findIndex((img) => img.id === id);
+        if (idx === -1) return prev;
+        const next = [...prev];
+        next[idx] = { id, base64, mimeType: mime, thumbnail };
+        return next;
+      });
+    } catch {
+      setImages((prev) => prev.filter((img) => img.id !== id));
+    } finally {
+      if (isBlobUrl) URL.revokeObjectURL(url);
+    }
   }, [maxImages, generateRefThumbnail]);
 
   useEffect(() => {
     if (addImageRef) {
-      addImageRef.current = (dataUrl: string) => {
-        addImage(dataUrl);
+      addImageRef.current = (url: string, mimeType?: string) => {
+        addImage(url, mimeType);
       };
     }
     return () => {
@@ -186,7 +209,7 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
 
     const placeholders: AttachedImageWithThumb[] = accepted.map((file) => {
       const blobUrl = URL.createObjectURL(file);
-      return { base64: "", mimeType: file.type || "image/jpeg", thumbnail: blobUrl, _blobUrl: blobUrl };
+      return { id: crypto.randomUUID(), base64: "", mimeType: file.type || "image/jpeg", thumbnail: blobUrl, _blobUrl: blobUrl };
     });
     setImages((prev) => [...prev, ...placeholders]);
 
@@ -210,7 +233,7 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
             const idx = prev.findIndex((img) => img._blobUrl === blobUrl);
             if (idx === -1) return prev;
             const next = [...prev];
-            next[idx] = { base64, mimeType: mime, thumbnail };
+            next[idx] = { id: prev[idx].id, base64, mimeType: mime, thumbnail };
             return next;
           });
         } catch {
@@ -282,7 +305,7 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
         const blobUrl = URL.createObjectURL(file);
         setImages((prev) => {
           if (prev.length >= maxImages) return prev;
-          return [...prev, { base64: "", mimeType: file.type || "image/jpeg", thumbnail: blobUrl, _blobUrl: blobUrl }];
+          return [...prev, { id: crypto.randomUUID(), base64: "", mimeType: file.type || "image/jpeg", thumbnail: blobUrl, _blobUrl: blobUrl }];
         });
 
         // Encode in background
@@ -300,7 +323,7 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
             const idx = prev.findIndex((img) => img._blobUrl === blobUrl);
             if (idx === -1) return prev;
             const next = [...prev];
-            next[idx] = { base64, mimeType: mime, thumbnail };
+            next[idx] = { id: prev[idx].id, base64, mimeType: mime, thumbnail };
             return next;
           });
           URL.revokeObjectURL(blobUrl);
@@ -312,6 +335,19 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
       }
     }
   };
+
+  const handleReorder = useCallback((activeId: string, overId: string) => {
+    setImages((prev) => {
+      const oldIndex = prev.findIndex((img) => img.id === activeId);
+      const newIndex = prev.findIndex((img) => img.id === overId);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(oldIndex, 1);
+      next.splice(newIndex, 0, moved);
+      return next;
+    });
+    setPreviewIndex(null);
+  }, []);
 
   const handleRemoveImage = (index: number) => {
     setImages((prev) => {
@@ -385,57 +421,16 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
                   transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
                   style={{ overflow: "hidden" }}
                 >
-                  <div
-                    ref={imageScrollRef}
-                    className="ref-image-scroll flex items-center gap-2 overflow-x-scroll pt-2 pb-1"
-                    style={{ scrollbarWidth: "thin", scrollbarColor: "var(--chrome-handle) transparent" }}
-                    onWheel={(e) => {
-                      if (e.deltaY === 0) return;
-                      e.preventDefault();
-                      imageScrollRef.current!.scrollLeft += e.deltaY;
-                    }}
-                  >
-                    {images.map((img, i) => (
-                      <div key={i} className="relative inline-block flex-shrink-0">
-                        {img._blobUrl ? (
-                          <div className="h-14 w-14 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
-                            <svg className="animate-spin text-white/80" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
-                              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                            </svg>
-                          </div>
-                        ) : (
-                          <img
-                            src={img.thumbnail}
-                            alt={`Reference ${i + 1}`}
-                            className="h-14 w-14 rounded-lg object-cover border border-white/10 cursor-pointer"
-                            onClick={() => setPreviewIndex(i)}
-                            title="Click to preview"
-                          />
-                        )}
-                        <button
-                          onClick={() => handleRemoveImage(i)}
-                          className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white/80 hover:bg-black transition-colors"
-                          title="Remove image"
-                        >
-                          <X size={9} />
-                        </button>
-                      </div>
-                    ))}
-                    {!atLimit && (
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex-shrink-0 h-14 w-14 flex items-center justify-center rounded-lg border border-dashed border-white/15 text-text-secondary/30 hover:border-white/30 hover:text-text-secondary/60 transition-colors"
-                        title="Add reference image"
-                      >
-                        <Plus size={16} />
-                      </button>
-                    )}
-                    <span className="text-[10px] text-text-secondary/40 flex-shrink-0 pl-1 whitespace-nowrap">
-                      {images.length}/{maxImages}
-                      {atLimit && " — limit reached"}
-                    </span>
-                  </div>
+                  <SortableImageStrip
+                    images={images as SortableImage[]}
+                    maxImages={maxImages}
+                    onReorder={handleReorder}
+                    onRemove={handleRemoveImage}
+                    onPreview={setPreviewIndex}
+                    onAdd={() => fileInputRef.current?.click()}
+                    scrollRef={imageScrollRef}
+                    variant="desktop"
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

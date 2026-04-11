@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Plus, X, ChevronUp, Globe, ImageIcon, Trash2 } from "lucide-react";
+import { Sparkles, X, ChevronUp, Globe, ImageIcon, Trash2 } from "lucide-react";
+import { SortableImageStrip, type SortableImage } from "./SortableImageStrip";
 import { useWebHaptics } from "web-haptics/react";
 import Tooltip from "./Tooltip";
 import ZoomModal from "./ZoomModal";
@@ -15,6 +16,7 @@ import QualitySelector from "./QualitySelector";
 import BatchSizeSelector from "./BatchSizeSelector";
 
 interface AttachedImageWithThumb extends AttachedImage {
+  id?: string;
   thumbnail: string;
   _blobUrl?: string; // temporary blob URL while encoding is in progress
 }
@@ -23,7 +25,7 @@ interface MobilePromptSheetProps {
   onGenerate: (prompt: string, images?: AttachedImage[]) => void;
   promptRef?: React.MutableRefObject<((p: string) => void) | null>;
   restoreRef?: React.MutableRefObject<((prompt: string, images: AttachedImageWithThumb[]) => void) | null>;
-  addImageRef?: React.MutableRefObject<((dataUrl: string) => void) | null>;
+  addImageRef?: React.MutableRefObject<((url: string, mimeType?: string) => void) | null>;
 }
 
 export default function MobilePromptSheet({
@@ -69,7 +71,7 @@ export default function MobilePromptSheet({
     const savedPrompt = localStorage.getItem("lastPrompt");
     if (savedPrompt) setPrompt(savedPrompt);
     loadDraftImages().then((imgs) => {
-      if (imgs.length > 0) setImages(imgs);
+      if (imgs.length > 0) setImages(imgs.map(img => ({ ...img, id: crypto.randomUUID() })));
     });
   }, []);
 
@@ -95,8 +97,9 @@ export default function MobilePromptSheet({
       restoreRef.current = (p: string, imgs: AttachedImageWithThumb[]) => {
         setPrompt(p);
         localStorage.setItem("lastPrompt", p);
-        setImages(imgs);
-        saveDraftImages(imgs);
+        const withIds = imgs.map(img => ({ ...img, id: crypto.randomUUID() }));
+        setImages(withIds);
+        saveDraftImages(withIds);
         setOpen(true);
         setTimeout(triggerResize, 0);
       };
@@ -107,16 +110,52 @@ export default function MobilePromptSheet({
   }, [restoreRef, triggerResize]);
 
   const addImage = useCallback(
-    (dataUrl: string) => {
+    async (url: string, mimeType?: string) => {
+      const isBlobUrl = url.startsWith("blob:");
+      const mime = mimeType ?? (isBlobUrl ? "image/png" : (url.match(/data:([^;]+)/)?.[1] ?? "image/png"));
+      const id = crypto.randomUUID();
+      const marker = `pending:${id}`;
+
       setImages((prev) => {
         if (prev.length >= maxImages) return prev;
-        const [meta, base64Data] = dataUrl.split(",");
-        const mimeMatch = meta.match(/data:([^;]+)/);
-        const mime = mimeMatch ? mimeMatch[1] : "image/png";
-        const next = [...prev, { base64: base64Data, mimeType: mime, thumbnail: dataUrl }];
-        saveDraftImages(next);
-        return next;
+        return [...prev, { id, base64: "", mimeType: mime, thumbnail: "", _blobUrl: marker }];
       });
+
+      try {
+        const blob = await fetch(url).then((r) => r.blob());
+        const [thumbnail, base64] = await Promise.all([
+          new Promise<string>((resolve) => {
+            createImageBitmap(blob).then((bitmap) => {
+              const MAX = 160;
+              const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+              const canvas = document.createElement("canvas");
+              canvas.width = Math.round(bitmap.width * scale);
+              canvas.height = Math.round(bitmap.height * scale);
+              canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+              bitmap.close();
+              resolve(canvas.toDataURL("image/jpeg", 0.8));
+            });
+          }),
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve((e.target!.result as string).split(",")[1]);
+            reader.onerror = () => reject(new Error("FileReader failed"));
+            reader.readAsDataURL(blob);
+          }),
+        ]);
+        setImages((prev) => {
+          const idx = prev.findIndex((img) => img.id === id);
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next[idx] = { id, base64, mimeType: mime, thumbnail };
+          saveDraftImages(next.filter((img) => !img._blobUrl));
+          return next;
+        });
+      } catch {
+        setImages((prev) => prev.filter((img) => img.id !== id));
+      } finally {
+        if (isBlobUrl) URL.revokeObjectURL(url);
+      }
     },
     [maxImages]
   );
@@ -124,8 +163,8 @@ export default function MobilePromptSheet({
   // addImageRef — add image and open sheet
   useEffect(() => {
     if (addImageRef) {
-      addImageRef.current = (dataUrl: string) => {
-        addImage(dataUrl);
+      addImageRef.current = (url: string, mimeType?: string) => {
+        addImage(url, mimeType);
         setOpen(true);
       };
     }
@@ -176,6 +215,19 @@ export default function MobilePromptSheet({
     }
     e.target.value = "";
   };
+
+  const handleReorder = useCallback((activeId: string, overId: string) => {
+    setImages((prev) => {
+      const oldIndex = prev.findIndex((img) => img.id === activeId);
+      const newIndex = prev.findIndex((img) => img.id === overId);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(oldIndex, 1);
+      next.splice(newIndex, 0, moved);
+      return next;
+    });
+    setPreviewIndex(null);
+  }, []);
 
   const handleRemoveImage = (index: number) => {
     setImages((prev) => {
@@ -264,49 +316,15 @@ export default function MobilePromptSheet({
                   </button>
                 ) : (
                   <div className="mb-3 rounded-2xl p-3 border border-[var(--chrome-border)] bg-[var(--chrome-surface)]">
-                    <div className="ref-image-scroll flex items-center gap-2 overflow-x-scroll pt-2 pb-1"
-                      style={{ scrollbarWidth: "thin", scrollbarColor: "var(--chrome-handle) transparent" }}
-                    >
-                      {images.map((img, i) => (
-                        <div key={i} className="relative inline-block flex-shrink-0">
-                          <img
-                            src={img.thumbnail}
-                            alt={`Reference ${i + 1}`}
-                            className={`h-14 w-14 rounded-lg object-cover border border-[var(--chrome-border)] transition-opacity ${img._blobUrl ? "opacity-40" : "cursor-pointer"}`}
-                            onClick={() => { if (!img._blobUrl) setPreviewIndex(i); }}
-                            title={img._blobUrl ? undefined : "Click to preview"}
-                          />
-                          {img._blobUrl && (
-                            <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                              <svg className="animate-spin text-white/80" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
-                                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                              </svg>
-                            </div>
-                          )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleRemoveImage(i); }}
-                            className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white/80 hover:bg-black transition-colors"
-                            title="Remove image"
-                          >
-                            <X size={9} />
-                          </button>
-                        </div>
-                      ))}
-                      {!atLimit && (
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="flex-shrink-0 h-14 w-14 flex items-center justify-center rounded-lg border border-dashed text-text-secondary/30 hover:text-text-secondary/60 transition-colors border-[var(--chrome-border-strong)] hover:border-[var(--chrome-border-strong)]"
-                          title="Add reference image"
-                        >
-                          <Plus size={16} />
-                        </button>
-                      )}
-                      <span className="text-[10px] text-text-secondary/40 flex-shrink-0 pl-1 whitespace-nowrap">
-                        {images.length}/{maxImages}
-                        {atLimit && " — limit reached"}
-                      </span>
-                    </div>
+                    <SortableImageStrip
+                      images={images as SortableImage[]}
+                      maxImages={maxImages}
+                      onReorder={handleReorder}
+                      onRemove={handleRemoveImage}
+                      onPreview={setPreviewIndex}
+                      onAdd={() => fileInputRef.current?.click()}
+                      variant="mobile"
+                    />
                   </div>
                 )}
 

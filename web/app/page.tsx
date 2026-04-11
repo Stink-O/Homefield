@@ -77,10 +77,10 @@ export default function Home() {
   const [batchMode, setBatchMode] = useState(false);
   const promptSetterRef = useRef<((p: string) => void) | null>(null);
   const restoreRef = useRef<((prompt: string, images: AttachedImageWithThumb[]) => void) | null>(null);
-  const addImageRef = useRef<((dataUrl: string) => void) | null>(null);
+  const addImageRef = useRef<((url: string, mimeType?: string) => void) | null>(null);
   const mobilePromptSetterRef = useRef<((p: string) => void) | null>(null);
   const mobileRestoreRef = useRef<((prompt: string, images: AttachedImageWithThumb[]) => void) | null>(null);
-  const mobileAddImageRef = useRef<((dataUrl: string) => void) | null>(null);
+  const mobileAddImageRef = useRef<((url: string, mimeType?: string) => void) | null>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const orphanRecoveryRanRef = useRef(false);
   const failedJobsRestoredRef = useRef(false);
@@ -326,14 +326,10 @@ export default function Home() {
   const handleReference = useCallback(async (image: GeneratedImageMeta) => {
     const res = await fetch(`/api/images/${image.id}/download`);
     if (!res.ok) return;
-    const buffer = await res.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    const chunks: string[] = [];
-    for (let i = 0; i < bytes.length; i += 8192) chunks.push(String.fromCharCode(...bytes.subarray(i, i + 8192)));
-    const b64 = btoa(chunks.join(""));
-    const dataUrl = `data:${image.mimeType};base64,${b64}`;
-    addImageRef.current?.(dataUrl);
-    if (window.innerWidth < 640) mobileAddImageRef.current?.(dataUrl);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    addImageRef.current?.(blobUrl, image.mimeType);
+    if (window.innerWidth < 640) mobileAddImageRef.current?.(blobUrl, image.mimeType);
   }, []);
 
   const handleBatchDelete = useCallback((ids: string[]) => {

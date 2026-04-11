@@ -108,9 +108,10 @@ function ContextMenu({ track, displayName, onClose, onStartEdit, onDownload, onD
 }
 
 /* ─── Track row ──────────────────────────────────────────────── */
-function TrackRow({ track, index, isActive, isDeleting, displayName, isEditingTitle, editingValue, contextMenuOpen, onLoad, onDelete, onOpenContextMenu, onCloseContextMenu, onStartEditTitle, onCommitEditTitle, onCancelEditTitle, onEditTitleChange, onDownload, onCopyPrompt }: {
+function TrackRow({ track, index, isActive, isDeleting, displayName, isEditingTitle, editingValue, contextMenuOpen, isMobile, onLoad, onDelete, onOpenContextMenu, onCloseContextMenu, onStartEditTitle, onCommitEditTitle, onCancelEditTitle, onEditTitleChange, onDownload, onCopyPrompt }: {
   track: Track; index: number; isActive: boolean; isDeleting: boolean;
   displayName: string; isEditingTitle: boolean; editingValue: string; contextMenuOpen: boolean;
+  isMobile: boolean;
   onLoad: () => void; onDelete: () => void;
   onOpenContextMenu: () => void; onCloseContextMenu: () => void;
   onStartEditTitle: () => void; onCommitEditTitle: () => void;
@@ -137,7 +138,7 @@ function TrackRow({ track, index, isActive, isDeleting, displayName, isEditingTi
         {String(index + 1).padStart(2, "0")}
       </span>
 
-      <MiniWave active={isActive} seed={seed} />
+      {!isMobile && <MiniWave active={isActive} seed={seed} />}
 
       <div style={{ flex: 1, minWidth: 0 }} onClick={e => { if (isEditingTitle) e.stopPropagation(); }}>
         {isEditingTitle ? (
@@ -165,20 +166,24 @@ function TrackRow({ track, index, isActive, isDeleting, displayName, isEditingTi
         )}
       </div>
 
-      <span style={{
-        fontSize: 10, letterSpacing: "0.12em", fontFamily: "var(--font-jetbrains-mono, monospace)",
-        padding: "1px 5px", borderRadius: 3, flexShrink: 0,
-        background: isActive ? "rgba(163,230,53,0.08)" : "rgba(255,255,255,0.03)",
-        color: isActive ? "rgba(163,230,53,0.7)" : "#71717a",
-        border: `1px solid ${isActive ? "rgba(163,230,53,0.18)" : "rgba(255,255,255,0.05)"}`,
-        transition: "all 0.14s",
-      }}>
-        {track.model === "lyria-3-clip-preview" ? "CLIP" : "PRO"}
-      </span>
+      {!isMobile && (
+        <span style={{
+          fontSize: 10, letterSpacing: "0.12em", fontFamily: "var(--font-jetbrains-mono, monospace)",
+          padding: "1px 5px", borderRadius: 3, flexShrink: 0,
+          background: isActive ? "rgba(163,230,53,0.08)" : "rgba(255,255,255,0.03)",
+          color: isActive ? "rgba(163,230,53,0.7)" : "#71717a",
+          border: `1px solid ${isActive ? "rgba(163,230,53,0.18)" : "rgba(255,255,255,0.05)"}`,
+          transition: "all 0.14s",
+        }}>
+          {track.model === "lyria-3-clip-preview" ? "CLIP" : "PRO"}
+        </span>
+      )}
 
-      <span style={{ fontSize: 11, color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", flexShrink: 0, minWidth: 22, textAlign: "right" }}>
-        {ago(track.timestamp)}
-      </span>
+      {!isMobile && (
+        <span style={{ fontSize: 11, color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", flexShrink: 0, minWidth: 22, textAlign: "right" }}>
+          {ago(track.timestamp)}
+        </span>
+      )}
 
       <div style={{ position: "relative", flexShrink: 0 }}>
         <button
@@ -400,6 +405,7 @@ export interface MusicSessionsPanelProps {
   onCancelEditTitle: () => void;
   onEditTitleChange: (v: string) => void;
   onCopyPrompt: (prompt: string) => void;
+  isMobile?: boolean;
 }
 
 export default function MusicSessionsPanel({
@@ -407,7 +413,7 @@ export default function MusicSessionsPanel({
   trackDisplayNames, contextMenuTrack, editingTrackTitle, editingTitleValue,
   onLoadTrack, onDeleteTrack, onOpenContextMenu, onCloseContextMenu,
   onStartEditTitle, onCommitEditTitle, onCancelEditTitle, onEditTitleChange,
-  onCopyPrompt,
+  onCopyPrompt, isMobile = false,
 }: MusicSessionsPanelProps) {
 
   const getDisplayName = useCallback((t: Track) => trackDisplayNames[t.id] ?? t.prompt, [trackDisplayNames]);
@@ -491,6 +497,7 @@ export default function MusicSessionsPanel({
                   isEditingTitle={editingTrackTitle === t.id}
                   editingValue={editingTitleValue}
                   contextMenuOpen={contextMenuTrack === t.id}
+                  isMobile={isMobile}
                   onLoad={() => onLoadTrack(t)}
                   onDelete={() => onDeleteTrack(t.id)}
                   onOpenContextMenu={() => onOpenContextMenu(t.id)}

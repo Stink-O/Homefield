@@ -110,6 +110,7 @@ export interface MusicComposePanelProps {
   onClearError: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isMobile?: boolean;
 }
 
 export default function MusicComposePanel({
@@ -123,7 +124,7 @@ export default function MusicComposePanel({
   promptRewriter, setPromptRewriter, advancedOpen, setAdvancedOpen,
   attachedImage, onAttachImage, onRemoveImage, onPreviewImage,
   generating, onGenerate, onClear, error, onClearError,
-  fileInputRef, onFileChange,
+  fileInputRef, onFileChange, isMobile = false,
 }: MusicComposePanelProps) {
   const canGenerate = prompt.trim().length > 0 && !generating;
   const hasClearable = (prompt.trim().length > 0 || !!attachedImage) && !generating;
@@ -137,9 +138,8 @@ export default function MusicComposePanel({
   return (
     <div style={{
       display: "flex", flexDirection: "column",
-      borderRight: "1px solid rgba(255,255,255,0.07)",
       background: "var(--surface-elevated)",
-      overflow: "hidden",
+      overflow: isMobile ? "auto" : "hidden",
       height: "100%",
     }}>
       {/* Panel header */}
@@ -179,95 +179,156 @@ export default function MusicComposePanel({
         </div>
       </div>
 
-      {/* Three-column content */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "136px 1fr 136px",
-        gap: 0, flex: 1, overflow: "hidden", minHeight: 0,
-      }}>
-        {/* Left: Duration presets */}
-        <div style={{
-          borderRight: "1px solid rgba(255,255,255,0.06)",
-          padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10,
-        }}>
-          <span style={{ fontSize: 10, letterSpacing: "0.18em", color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>
-            Duration
-          </span>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+      {isMobile ? (
+        /* ── Mobile: stacked layout ── */
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          {/* Duration row */}
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, scrollbarWidth: "none" }}>
             {DURATION_PRESETS.map(p => {
               const isClip = selectedModel === "lyria-3-clip-preview";
               const disabled = isClip && p.value !== 30;
               const active = selectedDuration === p.value && !disabled;
               return (
-                <button key={p.value}
-                  onClick={() => { if (!disabled) setSelectedDuration(p.value); }}
-                  disabled={disabled}
+                <button key={p.value} onClick={() => { if (!disabled) setSelectedDuration(p.value); }} disabled={disabled}
                   style={{
                     background: active ? "rgba(163,230,53,0.12)" : "rgba(255,255,255,0.04)",
                     border: active ? "1px solid rgba(163,230,53,0.3)" : "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 7, padding: "7px 4px",
-                    cursor: disabled ? "not-allowed" : "pointer",
-                    display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-                    transition: "all 0.15s",
-                    opacity: disabled ? 0.3 : 1,
+                    borderRadius: 7, padding: "6px 14px", cursor: disabled ? "not-allowed" : "pointer",
+                    display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
+                    transition: "all 0.15s", opacity: disabled ? 0.3 : 1,
                   }}
                 >
-                  <span style={{ fontSize: 11, fontFamily: "var(--font-jetbrains-mono, monospace)", color: active ? "#a3e635" : "#71717a", letterSpacing: "0.04em", transition: "color 0.15s" }}>
-                    {p.label}
-                  </span>
-                  <span style={{ fontSize: 10, fontFamily: "var(--font-jetbrains-mono, monospace)", color: active ? "rgba(163,230,53,0.5)" : "#52525b", transition: "color 0.15s" }}>
-                    {DURATION_LABELS[p.value]}
-                  </span>
+                  <span style={{ fontSize: 12, fontFamily: "var(--font-jetbrains-mono, monospace)", color: active ? "#a3e635" : "#71717a", letterSpacing: "0.04em" }}>{p.label}</span>
+                  <span style={{ fontSize: 10, fontFamily: "var(--font-jetbrains-mono, monospace)", color: active ? "rgba(163,230,53,0.5)" : "#52525b" }}>{DURATION_LABELS[p.value]}</span>
                 </button>
               );
             })}
           </div>
-        </div>
 
-        {/* Center: Textarea */}
-        <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Textarea */}
           <textarea
             value={prompt}
             onChange={e => { setPrompt(e.target.value); localStorage.setItem("music:prompt", e.target.value); }}
             placeholder="What kind of track do you want to create?"
-            disabled={generating} rows={4}
+            disabled={generating} rows={5}
             onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onGenerate(); }}
             className="hf-textarea"
             style={{
-              flex: 1, display: "block", width: "100%", background: "transparent", border: "none",
-              padding: "18px 18px", color: "#b8b8b8",
+              display: "block", width: "100%", background: "transparent", border: "none",
+              padding: "16px", color: "#b8b8b8",
               fontFamily: "var(--font-outfit, sans-serif)", fontSize: 15, lineHeight: 1.65,
-              resize: "none", outline: "none", boxSizing: "border-box", height: "100%",
+              resize: "none", outline: "none", boxSizing: "border-box",
               opacity: generating ? 0.35 : 1, transition: "opacity 0.2s",
             }}
           />
-        </div>
 
-        {/* Right: Inspiration chips */}
-        <div style={{
-          borderLeft: "1px solid rgba(255,255,255,0.06)",
-          padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10,
-        }}>
-          <span style={{ fontSize: 10, letterSpacing: "0.18em", color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>
-            Inspiration
-          </span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {/* Inspiration chips */}
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, scrollbarWidth: "none" }}>
             {CHIPS.map(chip => (
               <button key={chip} onClick={() => appendChip(chip)}
                 style={{
                   background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 6, padding: "6px 10px", cursor: "pointer", textAlign: "left",
+                  borderRadius: 6, padding: "6px 12px", cursor: "pointer", flexShrink: 0,
                   fontSize: 11, fontFamily: "var(--font-jetbrains-mono, monospace)",
-                  color: "#71717a", letterSpacing: "0.06em", transition: "all 0.14s",
+                  color: "#71717a", letterSpacing: "0.06em", transition: "all 0.14s", whiteSpace: "nowrap",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.color = "#a3e635"; e.currentTarget.style.borderColor = "rgba(163,230,53,0.25)"; e.currentTarget.style.background = "rgba(163,230,53,0.06)"; }}
-                onMouseLeave={e => { e.currentTarget.style.color = "#71717a"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
               >
                 {chip}
               </button>
             ))}
           </div>
         </div>
-      </div>
+      ) : (
+        /* ── Desktop: three-column grid ── */
+        <div style={{
+          display: "grid", gridTemplateColumns: "136px 1fr 136px",
+          gap: 0, flex: 1, overflow: "hidden", minHeight: 0,
+        }}>
+          {/* Left: Duration presets */}
+          <div style={{
+            borderRight: "1px solid rgba(255,255,255,0.06)",
+            padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10,
+          }}>
+            <span style={{ fontSize: 10, letterSpacing: "0.18em", color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>
+              Duration
+            </span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              {DURATION_PRESETS.map(p => {
+                const isClip = selectedModel === "lyria-3-clip-preview";
+                const disabled = isClip && p.value !== 30;
+                const active = selectedDuration === p.value && !disabled;
+                return (
+                  <button key={p.value}
+                    onClick={() => { if (!disabled) setSelectedDuration(p.value); }}
+                    disabled={disabled}
+                    style={{
+                      background: active ? "rgba(163,230,53,0.12)" : "rgba(255,255,255,0.04)",
+                      border: active ? "1px solid rgba(163,230,53,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 7, padding: "7px 4px",
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                      transition: "all 0.15s",
+                      opacity: disabled ? 0.3 : 1,
+                    }}
+                  >
+                    <span style={{ fontSize: 11, fontFamily: "var(--font-jetbrains-mono, monospace)", color: active ? "#a3e635" : "#71717a", letterSpacing: "0.04em", transition: "color 0.15s" }}>
+                      {p.label}
+                    </span>
+                    <span style={{ fontSize: 10, fontFamily: "var(--font-jetbrains-mono, monospace)", color: active ? "rgba(163,230,53,0.5)" : "#52525b", transition: "color 0.15s" }}>
+                      {DURATION_LABELS[p.value]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Center: Textarea */}
+          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <textarea
+              value={prompt}
+              onChange={e => { setPrompt(e.target.value); localStorage.setItem("music:prompt", e.target.value); }}
+              placeholder="What kind of track do you want to create?"
+              disabled={generating} rows={4}
+              onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onGenerate(); }}
+              className="hf-textarea"
+              style={{
+                flex: 1, display: "block", width: "100%", background: "transparent", border: "none",
+                padding: "18px 18px", color: "#b8b8b8",
+                fontFamily: "var(--font-outfit, sans-serif)", fontSize: 15, lineHeight: 1.65,
+                resize: "none", outline: "none", boxSizing: "border-box", height: "100%",
+                opacity: generating ? 0.35 : 1, transition: "opacity 0.2s",
+              }}
+            />
+          </div>
+
+          {/* Right: Inspiration chips */}
+          <div style={{
+            borderLeft: "1px solid rgba(255,255,255,0.06)",
+            padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10,
+          }}>
+            <span style={{ fontSize: 10, letterSpacing: "0.18em", color: "#52525b", fontFamily: "var(--font-jetbrains-mono, monospace)", textTransform: "uppercase" }}>
+              Inspiration
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {CHIPS.map(chip => (
+                <button key={chip} onClick={() => appendChip(chip)}
+                  style={{
+                    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 6, padding: "6px 10px", cursor: "pointer", textAlign: "left",
+                    fontSize: 11, fontFamily: "var(--font-jetbrains-mono, monospace)",
+                    color: "#71717a", letterSpacing: "0.06em", transition: "all 0.14s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#a3e635"; e.currentTarget.style.borderColor = "rgba(163,230,53,0.25)"; e.currentTarget.style.background = "rgba(163,230,53,0.06)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#71717a"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Advanced section */}
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>

@@ -69,6 +69,15 @@ export default function MusicPage() {
   const [editingTitleValue, setEditingTitleValue] = useState("");
   const [trackDisplayNames, setTrackDisplayNames] = useState<Record<string, string>>({});
 
+  const [mobileTab, setMobileTab] = useState<"compose" | "sessions">("compose");
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const username = session?.user?.name ?? "";
   const userRole = (session?.user as { role?: string } | undefined)?.role ?? "";
@@ -212,14 +221,14 @@ export default function MusicPage() {
 
   return (
     <>
-      <div style={{ height: "100vh", display: "flex", flexDirection: "column", color: "var(--text-primary)", fontFamily: "var(--font-outfit, sans-serif)", overflow: "hidden" }}>
+      <div style={{ height: "100dvh", display: "flex", flexDirection: "column", color: "var(--text-primary)", fontFamily: "var(--font-outfit, sans-serif)", overflow: "hidden" }}>
 
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-          style={{ flexShrink: 0, height: 64, background: "var(--surface)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", zIndex: 50 }}
+          style={{ flexShrink: 0, height: 56, background: "var(--surface)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", zIndex: 50 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Image src="/logo-header.png" alt="HomeField" width={44} height={44} style={{ borderRadius: 10, width: 44, height: 44, objectFit: "cover", flexShrink: 0 }} />
@@ -262,18 +271,38 @@ export default function MusicPage() {
           </div>
         </motion.header>
 
+        {/* Mobile tab bar */}
+        {isMobile && (
+          <div style={{ display: "flex", flexShrink: 0, borderBottom: "1px solid rgba(255,255,255,0.08)", background: "var(--surface)" }}>
+            {(["compose", "sessions"] as const).map(tab => (
+              <button key={tab} onClick={() => setMobileTab(tab)} style={{
+                flex: 1, padding: "10px 0", background: "none", border: "none", cursor: "pointer",
+                fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase",
+                fontFamily: "var(--font-jetbrains-mono, monospace)",
+                color: mobileTab === tab ? "#a3e635" : "#52525b",
+                borderBottom: mobileTab === tab ? "2px solid #a3e635" : "2px solid transparent",
+                transition: "color 0.15s",
+              }}>
+                {tab === "compose" ? "Compose" : "Sessions"}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Two-panel grid */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.32, ease: [0.22, 0.5, 0.36, 1] }}
           style={{
-            flex: 1, display: "grid",
+            flex: 1,
+            display: isMobile ? "block" : "grid",
             gridTemplateColumns: "45fr 55fr",
             overflow: "hidden",
             minHeight: 0,
           }}
         >
+          <div style={{ display: isMobile && mobileTab !== "compose" ? "none" : "flex", flexDirection: "column", height: "100%", overflow: "hidden", borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.07)" }}>
           <MusicComposePanel
             prompt={prompt} setPrompt={setPrompt}
             selectedModel={selectedModel} setSelectedModel={handleSetModel}
@@ -300,8 +329,11 @@ export default function MusicPage() {
             onClearError={() => setError(null)}
             fileInputRef={fileInputRef}
             onFileChange={handleFileChange}
+            isMobile={isMobile}
           />
+          </div>
 
+          <div style={{ display: isMobile && mobileTab !== "sessions" ? "none" : "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
           <MusicSessionsPanel
             tracks={tracks}
             currentTrack={currentTrack}
@@ -320,7 +352,9 @@ export default function MusicPage() {
             onCancelEditTitle={() => setEditingTrackTitle(null)}
             onEditTitleChange={v => setEditingTitleValue(v)}
             onCopyPrompt={handleCopyPrompt}
+            isMobile={isMobile}
           />
+          </div>
         </motion.div>
       </div>
 

@@ -221,7 +221,7 @@ export default function MusicPage() {
 
   return (
     <>
-      <div style={{ height: "100dvh", display: "flex", flexDirection: "column", color: "var(--text-primary)", fontFamily: "var(--font-outfit, sans-serif)", overflow: "hidden" }}>
+      <div style={{ height: isMobile ? "auto" : "100dvh", minHeight: isMobile ? "100dvh" : undefined, display: "flex", flexDirection: "column", color: "var(--text-primary)", fontFamily: "var(--font-outfit, sans-serif)", overflow: isMobile ? "visible" : "hidden" }}>
 
         {/* Header */}
         <motion.header
@@ -295,14 +295,14 @@ export default function MusicPage() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.32, ease: [0.22, 0.5, 0.36, 1] }}
           style={{
-            flex: 1,
+            flex: isMobile ? undefined : 1,
             display: isMobile ? "block" : "grid",
             gridTemplateColumns: "45fr 55fr",
-            overflow: "hidden",
-            minHeight: 0,
+            overflow: isMobile ? "visible" : "hidden",
+            minHeight: isMobile ? undefined : 0,
           }}
         >
-          <div style={{ display: isMobile && mobileTab !== "compose" ? "none" : "flex", flexDirection: "column", height: "100%", overflow: "hidden", borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ display: isMobile && mobileTab !== "compose" ? "none" : "flex", flexDirection: "column", height: isMobile ? "auto" : "100%", overflow: isMobile ? "visible" : "hidden", borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.07)" }}>
           <MusicComposePanel
             prompt={prompt} setPrompt={setPrompt}
             selectedModel={selectedModel} setSelectedModel={handleSetModel}
@@ -333,7 +333,7 @@ export default function MusicPage() {
           />
           </div>
 
-          <div style={{ display: isMobile && mobileTab !== "sessions" ? "none" : "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+          <div style={{ display: isMobile && mobileTab !== "sessions" ? "none" : "flex", flexDirection: "column", height: isMobile ? "auto" : "100%", overflow: isMobile ? "visible" : "hidden" }}>
           <MusicSessionsPanel
             tracks={tracks}
             currentTrack={currentTrack}

@@ -139,8 +139,8 @@ export default function MusicComposePanel({
     <div style={{
       display: "flex", flexDirection: "column",
       background: "var(--surface-elevated)",
-      overflow: isMobile ? "auto" : "hidden",
-      height: "100%",
+      overflow: isMobile ? "visible" : "hidden",
+      height: isMobile ? "auto" : "100%",
     }}>
       {/* Panel header */}
       <div style={{

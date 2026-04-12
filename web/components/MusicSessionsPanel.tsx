@@ -428,7 +428,7 @@ export default function MusicSessionsPanel({
   return (
     <div style={{
       display: "flex", flexDirection: "column",
-      height: "100%", overflow: "hidden",
+      height: isMobile ? "auto" : "100%", overflow: isMobile ? "visible" : "hidden",
       background: "var(--surface)",
     }}>
       {/* Panel header */}
@@ -480,7 +480,7 @@ export default function MusicSessionsPanel({
       </div>
 
       {/* Track list */}
-      <div style={{ flex: 1, overflowY: "auto" }} className="scrollbar-thin">
+      <div style={{ flex: isMobile ? undefined : 1, overflowY: isMobile ? "visible" : "auto" }} className="scrollbar-thin">
         <LayoutGroup>
           <AnimatePresence initial={false}>
             {tracks.map((t, i) => (

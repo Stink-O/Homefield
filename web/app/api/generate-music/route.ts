@@ -188,12 +188,17 @@ async function callLyria(
   }
 
   if (!res.ok) {
-    const err = data?.error as { message?: string } | undefined;
-    console.error(`[HomeField] Lyria ${res.status}:`, JSON.stringify(err ?? data));
+    const err = data?.error as { message?: string; status?: string; details?: unknown } | undefined;
+    const topLevel = data as { message?: string; status?: string } | undefined;
+    console.error(`[HomeField] Lyria ${res.status}:`, JSON.stringify(data));
+    const googleMsg = err?.message || topLevel?.message || "";
+    const googleStatus = err?.status || topLevel?.status || "";
     const msg =
       res.status === 429
         ? "Rate limit reached — please wait a moment and retry"
-        : err?.message || `Lyria error (${res.status})`;
+        : res.status === 403
+        ? `Lyria 403 PERMISSION_DENIED${googleMsg ? ": " + googleMsg : ""}${googleStatus ? " (" + googleStatus + ")" : ""} — check IAM permissions and that the Lyria API is enabled`
+        : googleMsg || `Lyria error (${res.status})`;
     throw new Error(msg);
   }
 

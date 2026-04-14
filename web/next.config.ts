@@ -3,6 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  experimental: {
+    proxyClientMaxBodySize: 52428800, // 50 MB
+  },
   turbopack: {
     root: path.resolve(__dirname),
   },

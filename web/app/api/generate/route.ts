@@ -343,8 +343,7 @@ async function callGemini(
         ? {
           imageConfig: {
             ...(aspectRatio && aspectRatio !== "Auto" && { aspectRatio }),
-            // API requires lowercase: "1k", "2k", "4k"
-            ...(quality && { imageSize: quality.toLowerCase() }),
+            ...(quality && { imageSize: quality }),
           }
         }
         : {}),

@@ -4,6 +4,8 @@
 
 HomeField runs entirely on your own hardware using Google Vertex AI (Gemini, Imagen, Lyria). There is no usage dashboard, no SaaS subscription, and no data leaving your infrastructure. Spin it up with a single command, register an account, and start generating.
 
+If you use [Higgsfield](https://higgsfield.ai) for its image generation gallery, HomeField is a self-hosted alternative — same idea of a clean gallery-style interface for AI image generation, but running on your own infrastructure with no per-generation costs.
+
 ---
 
 ## What is it?

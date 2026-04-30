@@ -21,6 +21,8 @@ export default function SettingsModal() {
   const [devOpen, setDevOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importStatus, setImportStatus] = useState<null | "importing" | "done" | "error">(null);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
@@ -47,18 +49,28 @@ export default function SettingsModal() {
     e.target.value = "";
     if (!file) return;
     setImportStatus("importing");
+    setImportResult(null);
+    setImportError(null);
     try {
       const res = await fetch("/api/import", {
         method: "POST",
         body: file,
         headers: { "Content-Type": "application/zip" },
       });
-      if (!res.ok) throw new Error("Import failed");
+      const data = await res.json().catch(() => ({})) as { imported?: number; skipped?: number; error?: string };
+      if (!res.ok) {
+        setImportError(data.error ?? "Import failed");
+        setImportStatus("error");
+        setTimeout(() => { setImportStatus(null); setImportError(null); }, 5000);
+        return;
+      }
+      setImportResult({ imported: data.imported ?? 0, skipped: data.skipped ?? 0 });
       setImportStatus("done");
-      setTimeout(() => window.location.reload(), 1500);
+      setTimeout(() => window.location.reload(), 2000);
     } catch {
+      setImportError("Could not reach the server. Check your connection.");
       setImportStatus("error");
-      setTimeout(() => setImportStatus(null), 3000);
+      setTimeout(() => { setImportStatus(null); setImportError(null); }, 5000);
     }
   };
 
@@ -194,11 +206,25 @@ export default function SettingsModal() {
                   } disabled:opacity-40`}
                 >
                   {importStatus === "done" ? <Check size={14} /> : <Upload size={14} />}
-                  {importStatus === "importing" ? "Importing..." : importStatus === "done" ? "Imported!" : importStatus === "error" ? "Invalid file" : "Import"}
+                  {importStatus === "importing"
+                    ? "Importing..."
+                    : importStatus === "done"
+                    ? importResult
+                      ? `Imported ${importResult.imported} image${importResult.imported !== 1 ? "s" : ""}`
+                      : "Done"
+                    : importStatus === "error"
+                    ? "Failed"
+                    : "Import"}
                 </button>
                 <input ref={importRef} type="file" accept=".zip" className="hidden" onChange={handleImport} />
               </div>
-              <p className="text-xs text-text-secondary/40 mt-2">Export your images as a ZIP, then import on another device or origin.</p>
+              {importStatus === "error" && importError && (
+                <p className="text-xs text-red-400 mt-2">{importError}</p>
+              )}
+              {importStatus === "done" && importResult && importResult.skipped > 0 && (
+                <p className="text-xs text-text-secondary/50 mt-2">{importResult.skipped} image{importResult.skipped !== 1 ? "s" : ""} could not be imported.</p>
+              )}
+              {!importStatus && <p className="text-xs text-text-secondary/40 mt-2">Export your images as a ZIP, then import on another device or instance.</p>}
             </div>
 
             <div className="border-t border-[var(--border)]" />

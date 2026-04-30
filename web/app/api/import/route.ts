@@ -36,6 +36,52 @@ interface Manifest {
 
 export const maxDuration = 300;
 
+async function importImage(
+  imgMeta: ManifestImage,
+  zip: JSZip,
+  userId: string,
+  workspaceIdMap: Map<string, string>,
+): Promise<boolean> {
+  const imgFile = zip.file(`images/${imgMeta.id}${imgMeta.fileExt}`);
+  if (!imgFile) return false;
+
+  const newId = crypto.randomUUID();
+  const base64 = await imgFile.async("base64");
+
+  const { filePath, thumbnailPath, width, height } = await saveImageFile(
+    userId,
+    newId,
+    base64,
+    imgMeta.mimeType,
+  );
+
+  const newWorkspaceId = imgMeta.workspaceId
+    ? (workspaceIdMap.get(imgMeta.workspaceId) ?? null)
+    : null;
+
+  await db.insert(images).values({
+    id: newId,
+    userId,
+    workspaceId: newWorkspaceId,
+    prompt: imgMeta.prompt,
+    model: imgMeta.model,
+    aspectRatio: imgMeta.aspectRatio,
+    selectedAspectRatio: imgMeta.selectedAspectRatio ?? null,
+    quality: imgMeta.quality ?? null,
+    width,
+    height,
+    filePath,
+    thumbnailPath,
+    mimeType: imgMeta.mimeType,
+    timestamp: imgMeta.timestamp,
+    searchGrounding: imgMeta.searchGrounding ?? null,
+    isShared: false,
+    referenceImagePaths: null,
+  });
+
+  return true;
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
@@ -45,26 +91,26 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await req.arrayBuffer());
     zip = await JSZip.loadAsync(buffer);
   } catch {
-    return NextResponse.json({ error: "Invalid ZIP file" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid or corrupt ZIP file. The file may be too large or damaged." }, { status: 400 });
   }
 
   const manifestFile = zip.file("manifest.json");
   if (!manifestFile) {
-    return NextResponse.json({ error: "Missing manifest" }, { status: 400 });
+    return NextResponse.json({ error: "Missing manifest.json — this does not appear to be a HomeField export." }, { status: 400 });
   }
 
   let manifest: Manifest;
   try {
     manifest = JSON.parse(await manifestFile.async("string")) as Manifest;
   } catch {
-    return NextResponse.json({ error: "Invalid manifest" }, { status: 400 });
+    return NextResponse.json({ error: "manifest.json could not be parsed." }, { status: 400 });
   }
 
   if (!manifest.version || !Array.isArray(manifest.workspaces) || !Array.isArray(manifest.images)) {
-    return NextResponse.json({ error: "Invalid manifest structure" }, { status: 400 });
+    return NextResponse.json({ error: "Unrecognised manifest format." }, { status: 400 });
   }
 
-  // Create each workspace with "(Imported)" appended, track old -> new ID
+  // Create workspaces, mapping old IDs to new ones
   const workspaceIdMap = new Map<string, string>();
   for (const ws of manifest.workspaces) {
     const newId = crypto.randomUUID();
@@ -73,56 +119,33 @@ export async function POST(req: NextRequest) {
       id: newId,
       userId: auth.userId,
       name: `${ws.name} (Imported)`,
-      createdAt: Date.now(),
+      createdAt: ws.createdAt,
     });
   }
 
-  // Import each image
+  // Import images in parallel batches of 5 to balance speed vs. memory
+  const BATCH = 5;
   let imported = 0;
-  for (const imgMeta of manifest.images) {
-    const imgFile = zip.file(`images/${imgMeta.id}${imgMeta.fileExt}`);
-    if (!imgFile) continue;
+  let skipped = 0;
 
-    const newId = crypto.randomUUID();
-    const base64 = await imgFile.async("base64");
-
-    try {
-      const { filePath, thumbnailPath, width, height } = await saveImageFile(
-        auth.userId,
-        newId,
-        base64,
-        imgMeta.mimeType,
-      );
-
-      const newWorkspaceId = imgMeta.workspaceId
-        ? (workspaceIdMap.get(imgMeta.workspaceId) ?? null)
-        : null;
-
-      await db.insert(images).values({
-        id: newId,
-        userId: auth.userId,
-        workspaceId: newWorkspaceId,
-        prompt: imgMeta.prompt,
-        model: imgMeta.model,
-        aspectRatio: imgMeta.aspectRatio,
-        selectedAspectRatio: imgMeta.selectedAspectRatio ?? null,
-        quality: imgMeta.quality ?? null,
-        width,
-        height,
-        filePath,
-        thumbnailPath,
-        mimeType: imgMeta.mimeType,
-        timestamp: imgMeta.timestamp,
-        searchGrounding: imgMeta.searchGrounding ?? null,
-        isShared: false,
-        referenceImagePaths: null,
-      });
-
-      imported++;
-    } catch {
-      // Skip images that fail to save
+  for (let i = 0; i < manifest.images.length; i += BATCH) {
+    const batch = manifest.images.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      batch.map((imgMeta) => importImage(imgMeta, zip, auth.userId, workspaceIdMap))
+    );
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value) {
+        imported++;
+      } else {
+        skipped++;
+      }
     }
   }
 
-  return NextResponse.json({ success: true, imported, workspaces: manifest.workspaces.length });
+  return NextResponse.json({
+    success: true,
+    imported,
+    skipped,
+    workspaces: manifest.workspaces.length,
+  });
 }

@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       id: newId,
       userId: auth.userId,
       name: `${ws.name} (Imported)`,
-      createdAt: ws.createdAt,
+      createdAt: Date.now(),
     });
   }
 

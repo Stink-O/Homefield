@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, ChevronRight, Heart, User, Plus, Trash2, Upload, ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
-import { getHistoryMeta, getWorkspaces, type UserTemplate } from "@/lib/storage";
+import { type UserTemplate } from "@/lib/storage";
 
 interface TemplatePrompt {
   id: string;
@@ -607,10 +607,9 @@ export default function TemplateDrawer({ open, onClose, onSelectPrompt }: Templa
       }
 
       try {
-        const workspaces = getWorkspaces();
-        const allItems = await Promise.all(workspaces.map((ws) => getHistoryMeta(ws.id, 200)));
-        const sorted = allItems
-          .flatMap(({ items }) => items)
+        const historyRes = await fetch("/api/images?workspaceId=all&limit=100");
+        const historyData = historyRes.ok ? await historyRes.json() : { items: [] };
+        const sorted = (historyData.items as { prompt: string; timestamp: number }[])
           .sort((a, b) => b.timestamp - a.timestamp)
           .map((item) => item.prompt)
           .filter(Boolean);

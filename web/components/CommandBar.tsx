@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Plus, Globe } from "lucide-react";
+import { Sparkles, Plus, Globe, Trash2 } from "lucide-react";
 import { SortableImageStrip, type SortableImage } from "./SortableImageStrip";
 import ZoomModal from "./ZoomModal";
 import Tooltip from "./Tooltip";
@@ -43,6 +43,13 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
   const hasEncoding = images.some((img) => !!img._blobUrl);
   const canGenerate = prompt.trim().length > 0 && !hasEncoding;
   const atLimit = images.length >= maxImages;
+  const hasContent = prompt.trim().length > 0 || images.length > 0;
+
+  const handleClear = useCallback(() => {
+    setPrompt("");
+    setImages([]);
+    localStorage.setItem("lastPrompt", "");
+  }, []);
 
   // Debounced draft save — never blocks UI, skips pending (blob URL) entries
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -494,14 +501,24 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
                 className="hidden"
                 onChange={handleFileChange}
               />
-              <button
-                onClick={handleSubmit}
-                disabled={!canGenerate}
-                className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-all hover:bg-accent-hover disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <Sparkles size={15} />
-                Generate
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleClear}
+                  disabled={!hasContent}
+                  className="flex items-center justify-center w-9 h-9 rounded-xl text-text-secondary/40 transition-colors hover:text-red-400 hover:bg-white/5 disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:text-text-secondary/40 disabled:hover:bg-transparent"
+                  title="Clear prompt and images"
+                >
+                  <Trash2 size={15} />
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!canGenerate}
+                  className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-all hover:bg-accent-hover disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Sparkles size={15} />
+                  Generate
+                </button>
+              </div>
             </div>
           </div>
         </div>

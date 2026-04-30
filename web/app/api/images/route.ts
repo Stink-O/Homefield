@@ -15,13 +15,13 @@ export async function GET(req: NextRequest) {
   const cursor = cursorParam ? parseInt(cursorParam, 10) : undefined;
 
   // "main" and omitted both mean the NULL workspace in the database.
+  // "all" skips the workspace filter entirely (used by For You to read across all workspaces).
+  const isAll  = workspaceId === "all";
   const isMain = !workspaceId || workspaceId === "main";
   const conditions = [
     eq(images.userId, auth.userId),
     eq(images.isShared, false),
-    isMain
-      ? isNull(images.workspaceId)
-      : eq(images.workspaceId, workspaceId),
+    ...(isAll ? [] : [isMain ? isNull(images.workspaceId) : eq(images.workspaceId, workspaceId!)]),
   ];
   if (cursor !== undefined) conditions.push(lt(images.timestamp, cursor));
 

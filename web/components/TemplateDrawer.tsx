@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, ChevronRight, Heart, User, Plus, Trash2, Upload, ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
-import { getUserTemplates, saveUserTemplate, deleteUserTemplate, getHistoryMeta, getWorkspaces, type UserTemplate } from "@/lib/storage";
-import { randomUUID } from "@/lib/uuid";
+import { getHistoryMeta, getWorkspaces, type UserTemplate } from "@/lib/storage";
 
 interface TemplatePrompt {
   id: string;
@@ -324,7 +323,19 @@ export default function TemplateDrawer({ open, onClose, onSelectPrompt }: Templa
   // Load user templates when drawer opens
   useEffect(() => {
     if (!open) return;
-    getUserTemplates().then(setUserTemplates);
+    fetch("/api/user-templates")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: { id: string; title: string; description: string; content: string; thumbnailUrl: string | null; createdAt: number }[]) => {
+        setUserTemplates(data.map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          content: t.content,
+          thumbnail: t.thumbnailUrl ?? "",
+          createdAt: t.createdAt,
+        })));
+      })
+      .catch(() => {});
   }, [open]);
 
   // (For You results persist across opens — use the refresh button to re-fetch)
@@ -466,15 +477,27 @@ export default function TemplateDrawer({ open, onClose, onSelectPrompt }: Templa
 
     setSaving(true);
     try {
+      const body: Record<string, string> = { title, description: formDescription.trim(), content };
+      const match = formImage!.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        body.thumbnailMimeType = match[1];
+        body.thumbnailBase64 = match[2];
+      }
+      const res = await fetch("/api/user-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to save template");
+      const saved = await res.json() as { id: string; title: string; description: string; content: string; thumbnailUrl: string | null; createdAt: number };
       const template: UserTemplate = {
-        id: randomUUID(),
-        title,
-        description: formDescription.trim(),
-        content,
-        thumbnail: formImage!,
-        createdAt: Date.now(),
+        id: saved.id,
+        title: saved.title,
+        description: saved.description,
+        content: saved.content,
+        thumbnail: saved.thumbnailUrl ?? formImage!,
+        createdAt: saved.createdAt,
       };
-      await saveUserTemplate(template);
       setUserTemplates((prev) => [template, ...prev]);
       setCategory("mine");
       closeCreateForm();
@@ -484,7 +507,7 @@ export default function TemplateDrawer({ open, onClose, onSelectPrompt }: Templa
   }
 
   async function handleDeleteTemplate(id: string) {
-    await deleteUserTemplate(id);
+    await fetch(`/api/user-templates/${id}`, { method: "DELETE" });
     setUserTemplates((prev) => prev.filter((t) => t.id !== id));
     setDeletingId(null);
   }

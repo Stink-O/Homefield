@@ -43,6 +43,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/web/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/web/public ./public
 # Migrations must be present at process.cwd()/lib/db/migrations on startup
 COPY --from=builder --chown=nextjs:nodejs /app/web/lib/db/migrations ./lib/db/migrations
+# Template data (chunks + embeddings) needed by the For You feature
+COPY --from=builder --chown=nextjs:nodejs /app/web/data ./data
 
 # Pre-create storage dir — volume mount overlays this, but prevents crash on empty first boot
 RUN mkdir -p /app/storage && chown -R nextjs:nodejs /app/storage

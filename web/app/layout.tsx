@@ -19,9 +19,6 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "HomeField",
   description: "Private image generation studio",
-  icons: {
-    icon: "/favicon.ico",
-  },
 };
 
 export default function RootLayout({

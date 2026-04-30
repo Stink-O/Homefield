@@ -23,6 +23,10 @@ export default function SettingsModal() {
   const [importStatus, setImportStatus] = useState<null | "importing" | "done" | "error">(null);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [imageImportStatus, setImageImportStatus] = useState<null | "importing" | "done" | "error">(null);
+  const [imageImportResult, setImageImportResult] = useState<{ imported: number; failed: number } | null>(null);
+  const [imageImportError, setImageImportError] = useState<string | null>(null);
+  const imageImportRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
@@ -74,7 +78,38 @@ export default function SettingsModal() {
     }
   };
 
+  const handleImageImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (!files.length) return;
+    setImageImportStatus("importing");
+    setImageImportResult(null);
+    setImageImportError(null);
+    try {
+      const formData = new FormData();
+      formData.append("workspaceId", state.currentWorkspaceId);
+      for (const file of files) formData.append("images", file);
+      const res = await fetch("/api/import-images", { method: "POST", body: formData });
+      const data = await res.json().catch(() => ({})) as { imported?: number; failed?: number; error?: string };
+      if (!res.ok) {
+        setImageImportError(data.error ?? "Import failed");
+        setImageImportStatus("error");
+        setTimeout(() => { setImageImportStatus(null); setImageImportError(null); }, 5000);
+        return;
+      }
+      setImageImportResult({ imported: data.imported ?? 0, failed: data.failed ?? 0 });
+      setImageImportStatus("done");
+      setTimeout(() => window.location.reload(), 2000);
+    } catch {
+      setImageImportError("Could not reach the server.");
+      setImageImportStatus("error");
+      setTimeout(() => { setImageImportStatus(null); setImageImportError(null); }, 5000);
+    }
+  };
+
   if (!state.settingsOpen) return null;
+
+  const currentWorkspaceName = state.workspaces.find((w) => w.id === state.currentWorkspaceId)?.name ?? "Main";
 
   const handleDevToolsToggle = () => {
     const next = !devTools;
@@ -185,6 +220,8 @@ export default function SettingsModal() {
             {/* Data */}
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-text-secondary/50 mb-3">Data</p>
+
+              {/* Backup export / import */}
               <div className="flex gap-2 rounded-xl bg-white/[0.03] p-3 border border-[var(--border)]">
                 <button
                   onClick={handleExport}
@@ -192,7 +229,7 @@ export default function SettingsModal() {
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--border)] py-2.5 text-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-40"
                 >
                   <Download size={14} />
-                  {exporting ? "Exporting..." : "Export"}
+                  {exporting ? "Exporting..." : "Export Backup"}
                 </button>
                 <button
                   onClick={() => importRef.current?.click()}
@@ -214,7 +251,7 @@ export default function SettingsModal() {
                       : "Done"
                     : importStatus === "error"
                     ? "Failed"
-                    : "Import"}
+                    : "Import Backup"}
                 </button>
                 <input ref={importRef} type="file" accept=".zip" className="hidden" onChange={handleImport} />
               </div>
@@ -224,7 +261,43 @@ export default function SettingsModal() {
               {importStatus === "done" && importResult && importResult.skipped > 0 && (
                 <p className="text-xs text-text-secondary/50 mt-2">{importResult.skipped} image{importResult.skipped !== 1 ? "s" : ""} could not be imported.</p>
               )}
-              {!importStatus && <p className="text-xs text-text-secondary/40 mt-2">Export your images as a ZIP, then import on another device or instance.</p>}
+              {!importStatus && <p className="text-xs text-text-secondary/40 mt-2">Export your full library as a ZIP and restore it on any instance. Max 1 GB.</p>}
+
+              {/* Image import */}
+              <div className="mt-3">
+                <button
+                  onClick={() => imageImportRef.current?.click()}
+                  disabled={imageImportStatus === "importing"}
+                  className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm transition-colors ${
+                    imageImportStatus === "done"
+                      ? "bg-accent/20 text-accent"
+                      : imageImportStatus === "error"
+                      ? "bg-red-500/20 text-red-400"
+                      : "bg-[var(--border)] text-text-secondary hover:text-text-primary"
+                  } disabled:opacity-40`}
+                >
+                  {imageImportStatus === "done" ? <Check size={14} /> : <Upload size={14} />}
+                  {imageImportStatus === "importing"
+                    ? "Importing..."
+                    : imageImportStatus === "done"
+                    ? imageImportResult
+                      ? `Imported ${imageImportResult.imported} image${imageImportResult.imported !== 1 ? "s" : ""}`
+                      : "Done"
+                    : imageImportStatus === "error"
+                    ? "Failed"
+                    : `Import Images → ${currentWorkspaceName}`}
+                </button>
+                <input ref={imageImportRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageImport} />
+              </div>
+              {imageImportStatus === "error" && imageImportError && (
+                <p className="text-xs text-red-400 mt-2">{imageImportError}</p>
+              )}
+              {imageImportStatus === "done" && imageImportResult && imageImportResult.failed > 0 && (
+                <p className="text-xs text-text-secondary/50 mt-2">{imageImportResult.failed} image{imageImportResult.failed !== 1 ? "s" : ""} could not be imported.</p>
+              )}
+              {!imageImportStatus && (
+                <p className="text-xs text-text-secondary/40 mt-2">Import JPG, PNG, or WebP files directly into your current workspace.</p>
+              )}
             </div>
 
             <div className="border-t border-[var(--border)]" />

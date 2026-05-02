@@ -38,8 +38,6 @@ const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 // Maximum reference images per request (matches MODEL_IMAGE_LIMITS in types.ts)
 const MAX_REF_IMAGES = 14;
 
-// Maximum prompt length in characters
-const MAX_PROMPT_LENGTH = 4000;
 
 // UUID v4 regex for workspaceId validation
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -456,15 +454,8 @@ export async function POST(req: NextRequest) {
 
   // --- Strict input validation ---
 
-  // prompt: required string, capped at MAX_PROMPT_LENGTH
   if (typeof prompt !== "string" || !prompt.trim()) {
     return NextResponse.json({ error: "Prompt required" }, { status: 400 });
-  }
-  if (prompt.length > MAX_PROMPT_LENGTH) {
-    return NextResponse.json(
-      { error: `Prompt must be at most ${MAX_PROMPT_LENGTH} characters` },
-      { status: 400 },
-    );
   }
 
   // model: must be an allowlisted value (or absent, which defaults to imagen)

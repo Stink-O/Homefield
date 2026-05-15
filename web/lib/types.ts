@@ -100,13 +100,19 @@ export const MODEL_ASPECT_RATIOS: Record<ModelId, AspectRatio[]> = {
   ],
 };
 
-export type Quality = "1K" | "2K" | "4K";
+export type Quality = "512" | "1K" | "2K" | "4K";
 
 export const QUALITIES: { id: Quality; label: string }[] = [
+  { id: "512", label: "512" },
   { id: "1K", label: "1K" },
   { id: "2K", label: "2K" },
   { id: "4K", label: "4K" },
 ];
+
+export const MODEL_QUALITIES: Record<ModelId, Quality[]> = {
+  "gemini-3.1-flash-image-preview": ["512", "1K", "2K", "4K"],
+  "gemini-3-pro-image-preview":     ["1K", "2K", "4K"],
+};
 
 export type BatchSize = 1 | 2 | 3 | 4;
 

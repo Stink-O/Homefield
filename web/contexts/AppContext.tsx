@@ -91,6 +91,7 @@ function reducer(state: AppState, action: AppAction): AppState {
         ...state,
         selectedModel: action.payload,
         searchGrounding: action.payload === "gemini-3.1-flash-image-preview" ? state.searchGrounding : false,
+        quality: action.payload !== "gemini-3.1-flash-image-preview" && state.quality === "512" ? "1K" : state.quality,
       };
     case "SET_ASPECT_RATIO":
       localStorage.setItem("aspectRatio", action.payload);
@@ -262,7 +263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_ASPECT_RATIO", payload: ar as AspectRatio });
     }
     const q = localStorage.getItem("quality");
-    if (q === "1K" || q === "2K" || q === "4K") {
+    if (q === "512" || q === "1K" || q === "2K" || q === "4K") {
       dispatch({ type: "SET_QUALITY", payload: q });
     }
   }, []);

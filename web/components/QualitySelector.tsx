@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
-import { QUALITIES, type Quality } from "@/lib/types";
+import { MODEL_QUALITIES, type Quality } from "@/lib/types";
 
 export default function QualitySelector() {
   const { state, dispatch } = useApp();
@@ -41,7 +41,7 @@ export default function QualitySelector() {
             <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-text-secondary/50">
               Quality
             </div>
-            {QUALITIES.map((q) => (
+            {MODEL_QUALITIES[state.selectedModel].map((id) => ({ id, label: id })).map((q) => (
               <button
                 key={q.id}
                 onClick={() => {

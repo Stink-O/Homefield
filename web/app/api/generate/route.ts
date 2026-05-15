@@ -27,7 +27,7 @@ const ALLOWED_ASPECT_RATIOS = new Set([
   "Auto", "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9",
 ]);
 
-const ALLOWED_QUALITIES = new Set(["1K", "2K", "4K"]);
+const ALLOWED_QUALITIES = new Set(["512", "1K", "2K", "4K"]);
 
 // Maximum base64 string length for a single reference image.
 // Vertex AI allows 7 MB per image; base64 encodes at ~4/3x, so ~9.5 MB. Use 10 MB as ceiling.
@@ -476,6 +476,11 @@ export async function POST(req: NextRequest) {
   // quality: must be an allowlisted value if provided
   if (quality !== undefined && (typeof quality !== "string" || !ALLOWED_QUALITIES.has(quality))) {
     return NextResponse.json({ error: "Invalid quality" }, { status: 400 });
+  }
+
+  // 512 is only supported by the Flash model
+  if (quality === "512" && model !== "gemini-3.1-flash-image-preview") {
+    return NextResponse.json({ error: "512 quality is only supported for the Flash model" }, { status: 400 });
   }
 
   // searchGrounding: must be a boolean if provided

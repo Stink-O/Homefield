@@ -172,7 +172,7 @@ async function getAccessToken(sa: ServiceAccount): Promise<string> {
 }
 
 // 429 gets more retries than transient server errors
-const MAX_RETRIES: Record<number, number> = { 429: 6, 500: 1, 503: 3 };
+const MAX_RETRIES: Record<number, number> = { 429: 6, 500: 1, 502: 2, 503: 3 };
 
 // Truncated exponential backoff with full jitter (recommended by Google)
 // delay = min(cap, base * 2^attempt) + random jitter
@@ -369,7 +369,7 @@ async function callGemini(
     throw new Error(`Vertex AI returned a non-JSON response (status ${res.status})`);
   }
   if (!res.ok) {
-    console.error(`[HomeField] Gemini ${res.status}:`, JSON.stringify(data?.error ?? data));
+    console.error(`[HomeField] Gemini ${res.status} model=${model}:`, JSON.stringify(data?.error ?? data));
     const isQuotaExhausted = res.status === 429 && data?.error?.status === "RESOURCE_EXHAUSTED";
     const msg = isQuotaExhausted
       ? "Quota exhausted — check your Vertex AI limits or try again later"

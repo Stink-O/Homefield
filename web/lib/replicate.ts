@@ -1,8 +1,8 @@
 import type { AttachedImage } from "./types";
 
 const REPLICATE_MODEL_MAP: Record<string, string> = {
-  "gemini-3.1-flash-image-preview": "google/nano-banana-2",
-  "gemini-3-pro-image-preview": "google/nano-banana-pro",
+  "gemini-3.1-flash-image": "google/nano-banana-2",
+  "gemini-3-pro-image": "google/nano-banana-pro",
 };
 
 interface ReplicatePrediction {
@@ -33,7 +33,7 @@ export async function callReplicate(
   const replicateModel = REPLICATE_MODEL_MAP[model];
   if (!replicateModel) throw new Error(`Model ${model} not available on Replicate`);
 
-  const isNB2 = model === "gemini-3.1-flash-image-preview";
+  const isNB2 = model === "gemini-3.1-flash-image";
   const hasRefImages = images && images.length > 0;
 
   const replicateAspectRatio = aspectRatio === "Auto"

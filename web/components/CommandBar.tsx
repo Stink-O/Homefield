@@ -474,7 +474,7 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
                 <QualitySelector />
                 <div className="h-5 w-px bg-white/10 hidden sm:block" />
                 <div className="hidden sm:block"><BatchSizeSelector /></div>
-                {state.selectedModel === "gemini-3.1-flash-image-preview" && (
+                {state.selectedModel === "gemini-3.1-flash-image" && (
                   <>
                     <div className="h-5 w-px bg-white/10" />
                     <Tooltip content="Grounds generation in real-time web data. Useful for current events, recent imagery, or specific real-world references.">

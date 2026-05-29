@@ -90,8 +90,8 @@ function reducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         selectedModel: action.payload,
-        searchGrounding: action.payload === "gemini-3.1-flash-image-preview" ? state.searchGrounding : false,
-        quality: action.payload !== "gemini-3.1-flash-image-preview" && state.quality === "512" ? "1K" : state.quality,
+        searchGrounding: action.payload === "gemini-3.1-flash-image" ? state.searchGrounding : false,
+        quality: action.payload !== "gemini-3.1-flash-image" && state.quality === "512" ? "1K" : state.quality,
       };
     case "SET_ASPECT_RATIO":
       localStorage.setItem("aspectRatio", action.payload);
@@ -218,7 +218,7 @@ const MAX_HISTORY_IN_STATE = 200;
 
 const initialState: AppState = {
   history: [],
-  selectedModel: "gemini-3.1-flash-image-preview",
+  selectedModel: "gemini-3.1-flash-image",
   aspectRatio: "Auto",
   quality: "2K",
   batchSize: 1,

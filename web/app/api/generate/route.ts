@@ -17,8 +17,8 @@ import { callReplicate } from "@/lib/replicate";
 
 // Allowlisted model IDs. Arbitrary strings must never reach the Vertex AI URL.
 const ALLOWED_MODELS = new Set([
-  "gemini-3.1-flash-image-preview",
-  "gemini-3-pro-image-preview",
+  "gemini-3.1-flash-image",
+  "gemini-3-pro-image",
   "imagen-3.0-generate-001",
 ]);
 
@@ -479,7 +479,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 512 is only supported by the Flash model
-  if (quality === "512" && model !== "gemini-3.1-flash-image-preview") {
+  if (quality === "512" && model !== "gemini-3.1-flash-image") {
     return NextResponse.json({ error: "512 quality is only supported for the Flash model" }, { status: 400 });
   }
 

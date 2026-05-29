@@ -348,7 +348,7 @@ export default function MobilePromptSheet({
                   <div className="inline-flex items-center rounded-2xl border border-dashed border-[var(--chrome-border-strong)]" style={{ background: "linear-gradient(135deg, var(--chrome-surface-hover) 0%, var(--chrome-surface) 100%)" }}>
                     <ModelToggle />
                   </div>
-                  {state.selectedModel === "gemini-3.1-flash-image-preview" && (
+                  {state.selectedModel === "gemini-3.1-flash-image" && (
                     <Tooltip content="Grounds generation in real-time web data. Useful for current events, recent imagery, or specific real-world references.">
                       <button
                         onClick={() => dispatch({ type: "TOGGLE_SEARCH_GROUNDING" })}

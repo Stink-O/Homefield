@@ -12,8 +12,8 @@ export interface Workspace {
 // Per Google Vertex AI docs: both Gemini image generation models support up to 14 reference images,
 // 7 MB max per image (inline data).
 export const MODEL_IMAGE_LIMITS: Record<ModelId, number> = {
-  "gemini-3.1-flash-image-preview": 14,
-  "gemini-3-pro-image-preview": 14,
+  "gemini-3.1-flash-image": 14,
+  "gemini-3-pro-image": 14,
 };
 
 export interface GeneratedImage {
@@ -43,8 +43,8 @@ export interface GeneratedImage {
 export type GeneratedImageMeta = Omit<GeneratedImage, "base64">;
 
 export type ModelId =
-  | "gemini-3.1-flash-image-preview"
-  | "gemini-3-pro-image-preview";
+  | "gemini-3.1-flash-image"
+  | "gemini-3-pro-image";
 
 export interface ModelOption {
   id: ModelId;
@@ -56,14 +56,14 @@ export interface ModelOption {
 
 export const MODELS: ModelOption[] = [
   {
-    id: "gemini-3.1-flash-image-preview",
+    id: "gemini-3.1-flash-image",
     label: "Nano Banana 2",
     shortLabel: "NB2",
     description: "Pro-level quality at Flash speed",
     badge: "NEW",
   },
   {
-    id: "gemini-3-pro-image-preview",
+    id: "gemini-3-pro-image",
     label: "Nano Banana Pro",
     shortLabel: "Pro",
     description: "Google's flagship image generation model",
@@ -90,11 +90,11 @@ export const ASPECT_RATIOS: AspectRatio[] = [
 
 // Both models support the same confirmed-working set.
 export const MODEL_ASPECT_RATIOS: Record<ModelId, AspectRatio[]> = {
-  "gemini-3.1-flash-image-preview": [
+  "gemini-3.1-flash-image": [
     "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
     "9:16", "16:9", "5:4", "4:5", "21:9",
   ],
-  "gemini-3-pro-image-preview": [
+  "gemini-3-pro-image": [
     "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
     "9:16", "16:9", "5:4", "4:5", "21:9",
   ],
@@ -110,8 +110,8 @@ export const QUALITIES: { id: Quality; label: string }[] = [
 ];
 
 export const MODEL_QUALITIES: Record<ModelId, Quality[]> = {
-  "gemini-3.1-flash-image-preview": ["512", "1K", "2K", "4K"],
-  "gemini-3-pro-image-preview":     ["1K", "2K", "4K"],
+  "gemini-3.1-flash-image": ["512", "1K", "2K", "4K"],
+  "gemini-3-pro-image":     ["1K", "2K", "4K"],
 };
 
 export type BatchSize = 1 | 2 | 3 | 4;

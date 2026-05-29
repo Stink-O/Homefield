@@ -35,7 +35,7 @@ export default function ModelToggle() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const activeModel = MODELS.find((m) => m.id === state.selectedModel)!;
+  const activeModel = MODELS.find((m) => m.id === state.selectedModel) ?? MODELS[0];
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

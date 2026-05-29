@@ -46,6 +46,15 @@ export type ModelId =
   | "gemini-3.1-flash-image"
   | "gemini-3-pro-image";
 
+const LEGACY_MODEL_MAP: Record<string, ModelId> = {
+  "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image",
+  "gemini-3-pro-image-preview":     "gemini-3-pro-image",
+};
+
+export function normalizeModelId(id: string): ModelId {
+  return LEGACY_MODEL_MAP[id] ?? (id as ModelId);
+}
+
 export interface ModelOption {
   id: ModelId;
   label: string;

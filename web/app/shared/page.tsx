@@ -17,6 +17,7 @@ import {
   type ModelId,
   type Quality,
   ASPECT_RATIOS,
+  normalizeModelId,
 } from "@/lib/types";
 import { randomUUID } from "@/lib/uuid";
 import { getPendingJobs, removePendingJob, addFailedJob, getFailedJobs, removeFailedJob } from "@/lib/pendingJobs";
@@ -406,7 +407,7 @@ export default function SharedSpacePage() {
   }, []);
 
   const handleRestore = useCallback(async (image: GeneratedImageMeta) => {
-    dispatch({ type: "SET_MODEL", payload: image.model });
+    dispatch({ type: "SET_MODEL", payload: normalizeModelId(image.model) });
     dispatch({ type: "SET_ASPECT_RATIO", payload: image.selectedAspectRatio ?? image.aspectRatio });
     if (image.quality) dispatch({ type: "SET_QUALITY", payload: image.quality });
     dispatch({ type: "SET_SEARCH_GROUNDING", payload: image.searchGrounding ?? false });

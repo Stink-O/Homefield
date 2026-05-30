@@ -74,6 +74,47 @@ HomeField has full mobile support. Everything works on your phone.
 
 ---
 
+## Set Up with an AI Agent
+
+Paste this into any AI agent (Claude, ChatGPT, Gemini, etc.) and it will walk you through the entire setup:
+
+```
+I want to self-host HomeField Studio, an AI image and music generation web app that runs on Google Vertex AI. Help me get it running from scratch.
+
+Work through these steps in order, confirm each one is done before moving on, and ask me for any information you need along the way:
+
+1. Check that Docker and Docker Compose are installed. If not, help me install them.
+
+2. Clone the repo:
+   git clone https://github.com/Stink-O/Homefield.git
+   cd Homefield
+
+3. Help me set up a Google Cloud project with the Vertex AI API enabled. If I already have one, use that.
+
+4. Create a service account with the "Vertex AI User" role, download a JSON key, and help me strip all the newlines out of it so it's a single line.
+
+5. Run the setup script and help me fill in each prompt:
+   bash setup.sh
+
+   Or if I'd rather do it manually, help me create homefield.env in the repo root with:
+   AUTH_SECRET        (generate with: openssl rand -base64 32)
+   AUTH_TRUST_HOST=true
+   AUTH_URL           (the URL I'll access the app from, e.g. http://192.168.1.100:3000)
+   GOOGLE_APPLICATION_CREDENTIALS_JSON  (the single-line JSON key from step 4)
+   GENERATION_PROVIDER=vertex
+   NODE_ENV=production
+
+   Then start it:
+   docker compose -f docker-compose.homelab.yml up -d
+
+6. Once the app is running, help me register an account and promote it to admin by running this against storage/homefield.db:
+   UPDATE users SET role = 'admin', approved = 1 WHERE email = 'my@email.com';
+
+Let me know when everything is up and I can log in.
+```
+
+---
+
 ## Self-Hosting with Docker
 
 **You'll need:** Docker and Docker Compose, a Google Cloud project with the Vertex AI API enabled, and a service account JSON key with the Vertex AI User role.

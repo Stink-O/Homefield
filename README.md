@@ -68,6 +68,8 @@ It's built for homelab setups, creative professionals, and teams who want a priv
 
 ## Screenshots
 
+HomeField is fully optimised for mobile — the complete generation workflow, gallery, workspaces, and templates are all accessible from your phone.
+
 <table>
   <tr>
     <td><img src="Github_Homefield_Mobile_view_image.png" alt="HomeField mobile gallery view" width="360"/></td>

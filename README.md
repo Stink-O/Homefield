@@ -8,6 +8,15 @@ If you've used [Higgsfield](https://higgsfield.ai), it's the same kind of galler
 
 ![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
 
+HomeField has full mobile support. Everything works on your phone.
+
+<table>
+  <tr>
+    <td><img src="Github_Homefield_Mobile_view_image.png" alt="HomeField mobile gallery view" width="360"/></td>
+    <td><img src="Github_Homefield_Mobile_prompt_window_view_image.png" alt="HomeField mobile prompt sheet" width="360"/></td>
+  </tr>
+</table>
+
 ---
 
 ## Features
@@ -40,37 +49,6 @@ If you've used [Higgsfield](https://higgsfield.ai), it's the same kind of galler
 - **Shared gallery** for broadcasting to a public live feed
 - **Multi-user support** with admin-controlled account approval
 - **Admin panel** for managing users, roles, and backups
-
----
-
-## Screenshots
-
-HomeField has full mobile support. Everything works on your phone.
-
-<table>
-  <tr>
-    <td><img src="Github_Homefield_Mobile_view_image.png" alt="HomeField mobile gallery view" width="360"/></td>
-    <td><img src="Github_Homefield_Mobile_prompt_window_view_image.png" alt="HomeField mobile prompt sheet" width="360"/></td>
-  </tr>
-</table>
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5 |
-| Styling | Tailwind CSS 4 |
-| Animation | Framer Motion |
-| AI (Image and Music) | Google Vertex AI (Gemini, Imagen, Lyria) |
-| AI (Fallback) | Replicate |
-| Database | SQLite via Drizzle ORM + better-sqlite3 |
-| Auth | NextAuth v5 |
-| Real-time | Server-Sent Events (SSE) |
-| Image processing | Sharp |
-| Audio waveforms | Wavesurfer.js |
 
 ---
 
@@ -112,6 +90,24 @@ Work through these steps in order, confirm each one is done before moving on, an
 
 Let me know when everything is up and I can log in.
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript 5 |
+| Styling | Tailwind CSS 4 |
+| Animation | Framer Motion |
+| AI (Image and Music) | Google Vertex AI (Gemini, Imagen, Lyria) |
+| AI (Fallback) | Replicate |
+| Database | SQLite via Drizzle ORM + better-sqlite3 |
+| Auth | NextAuth v5 |
+| Real-time | Server-Sent Events (SSE) |
+| Image processing | Sharp |
+| Audio waveforms | Wavesurfer.js |
 
 ---
 

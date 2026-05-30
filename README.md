@@ -6,6 +6,8 @@ HomeField runs entirely on your own hardware using Google Vertex AI (Gemini, Ima
 
 If you use [Higgsfield](https://higgsfield.ai) for its image generation gallery, HomeField is a self-hosted alternative — same idea of a clean gallery-style interface for AI image generation, but running on your own infrastructure with no per-generation costs.
 
+![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
+
 ---
 
 ## What is it?
@@ -61,6 +63,17 @@ It's built for homelab setups, creative professionals, and teams who want a priv
 
 - **Admin panel** — manage users, approve registrations, promote or demote roles
 - **Import/export** — full backup as a ZIP archive including all images and metadata
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="Github_Homefield_Mobile_view_image.png" alt="HomeField mobile gallery view" width="360"/></td>
+    <td><img src="Github_Homefield_Mobile_prompt_window_view_image.png" alt="HomeField mobile prompt sheet" width="360"/></td>
+  </tr>
+</table>
 
 ---
 

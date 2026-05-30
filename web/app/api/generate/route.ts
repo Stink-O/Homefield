@@ -19,8 +19,18 @@ import { callReplicate } from "@/lib/replicate";
 const ALLOWED_MODELS = new Set([
   "gemini-3.1-flash-image",
   "gemini-3-pro-image",
+  "gemini-3.1-flash-image-preview",
+  "gemini-3-pro-image-preview",
   "imagen-3.0-generate-001",
 ]);
+
+const LEGACY_MODEL_MAP: Record<string, string> = {
+  "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image",
+  "gemini-3-pro-image-preview":     "gemini-3-pro-image",
+};
+function normalizeModel(id: string): string {
+  return LEGACY_MODEL_MAP[id] ?? id;
+}
 
 // Allowlisted aspect ratios sourced from types.ts ASPECT_RATIOS.
 const ALLOWED_ASPECT_RATIOS = new Set([
@@ -558,7 +568,8 @@ export async function POST(req: NextRequest) {
   createJob(jobId);
 
   // Resolve the effective model now so we can include it in the pending broadcast.
-  const selectedModel = (typeof model === "string" && model) ? model : "imagen-3.0-generate-001";
+  // Normalize legacy preview IDs to their GA equivalents before any API call.
+  const selectedModel = normalizeModel((typeof model === "string" && model) ? model : "imagen-3.0-generate-001");
   const startedAt = Date.now();
 
   // Broadcast to all devices logged in as this user that a new generation is starting.

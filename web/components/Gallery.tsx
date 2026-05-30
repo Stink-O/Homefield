@@ -9,7 +9,7 @@ import ImageCard from "./ImageCard";
 import ShimmerPlaceholder from "./ShimmerPlaceholder";
 import ZoomModal from "./ZoomModal";
 import BatchSelectBar from "./BatchSelectBar";
-import { ROW_CONFIGS, MODELS, getAspectDimensions, type AspectRatio, type GeneratedImageMeta } from "@/lib/types";
+import { ROW_CONFIGS, MODELS, normalizeModelId, getAspectDimensions, type AspectRatio, type GeneratedImageMeta } from "@/lib/types";
 import { copyText } from "@/lib/uuid";
 import { deleteFromHistory } from "@/lib/storage";
 
@@ -159,7 +159,7 @@ function GalleryLightbox({
   // Avoids fragile URL string manipulation and guarantees the correct file path
   // from the DB regardless of caching state or how the image was added to state.
   const imageSrc = `/api/images/${image.id}/download`;
-  const modelLabel = MODELS.find((m) => m.id === image.model)?.label ?? image.model;
+  const modelLabel = MODELS.find((m) => m.id === normalizeModelId(image.model))?.label ?? image.model;
   const formattedDate = new Date(image.timestamp).toLocaleString(undefined, {
     month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
   });

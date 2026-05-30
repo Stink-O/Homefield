@@ -10,7 +10,7 @@ import ShimmerPlaceholder from "./ShimmerPlaceholder";
 import BatchSelectBar from "./BatchSelectBar";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import ZoomModal from "./ZoomModal";
-import { ROW_CONFIGS, MODELS, getAspectDimensions, type AspectRatio, type GeneratedImageMeta, type Workspace } from "@/lib/types";
+import { ROW_CONFIGS, MODELS, normalizeModelId, getAspectDimensions, type AspectRatio, type GeneratedImageMeta, type Workspace } from "@/lib/types";
 import { useApp } from "@/contexts/AppContext";
 import { copyText } from "@/lib/uuid";
 import { createPortal } from "react-dom";
@@ -104,7 +104,7 @@ const SharedCard = memo(function SharedCard({
     : image.thumbnailBase64
       ? `data:image/jpeg;base64,${image.thumbnailBase64}`
       : "";
-  const modelLabel = MODELS.find((m) => m.id === image.model)?.label ?? image.model;
+  const modelLabel = MODELS.find((m) => m.id === normalizeModelId(image.model))?.label ?? image.model;
   const canDelete = isOwn || isAdmin;
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -360,7 +360,7 @@ function SharedLightbox({
 
   const imageSrc = `/api/images/${image.id}/download`;
 
-  const modelLabel = MODELS.find((m) => m.id === image.model)?.label ?? image.model;
+  const modelLabel = MODELS.find((m) => m.id === normalizeModelId(image.model))?.label ?? image.model;
   const formattedDate = new Date(image.timestamp).toLocaleString(undefined, {
     month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
   });

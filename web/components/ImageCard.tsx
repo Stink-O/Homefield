@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { Download, Maximize2, Copy, Check, Trash2, Wand2, ImagePlus, MoreVertical, ChevronRight } from "lucide-react";
 import type { GeneratedImageMeta, Workspace } from "@/lib/types";
-import { MODELS } from "@/lib/types";
+import { MODELS, normalizeModelId } from "@/lib/types";
 import { copyText } from "@/lib/uuid";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 
@@ -47,7 +47,7 @@ function ImageCard({ image, index, onPromptSelect, onRestore, onReference, isSel
   const [thumbSrc, setThumbSrc] = useState(thumbnailSrc);
   const [thumbFailed, setThumbFailed] = useState(false);
   const thumbRetries = useRef(0);
-  const modelLabel = MODELS.find((m) => m.id === image.model)?.label ?? image.model;
+  const modelLabel = MODELS.find((m) => m.id === normalizeModelId(image.model))?.label ?? image.model;
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();

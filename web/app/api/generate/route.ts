@@ -314,6 +314,45 @@ interface AttachedImage {
   mimeType: string;
 }
 
+type GeminiStreamPart = { text?: string; inlineData?: { mimeType: string; data: string } };
+type GeminiStreamChunk = {
+  candidates?: Array<{
+    content?: { parts?: GeminiStreamPart[] };
+    finishReason?: string;
+    safetyRatings?: unknown;
+    groundingMetadata?: unknown;
+  }>;
+  promptFeedback?: unknown;
+  error?: { message?: string; status?: string };
+};
+
+// streamGenerateContent returns NDJSON (one JSON object per line).
+// Merge all chunks into the same shape as a generateContent response
+// so the rest of callGemini can parse it identically.
+function mergeStreamChunks(text: string): GeminiStreamChunk {
+  const parts: GeminiStreamPart[] = [];
+  let finishReason: string | undefined;
+  let safetyRatings: unknown;
+  let groundingMetadata: unknown;
+  let promptFeedback: unknown;
+  let errorChunk: GeminiStreamChunk | undefined;
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let chunk: GeminiStreamChunk;
+    try { chunk = JSON.parse(trimmed); } catch { continue; }
+    if (chunk.error) { errorChunk = chunk; break; }
+    const candidate = chunk.candidates?.[0];
+    if (candidate?.content?.parts) parts.push(...candidate.content.parts);
+    if (candidate?.finishReason) finishReason = candidate.finishReason;
+    if (candidate?.safetyRatings) safetyRatings = candidate.safetyRatings;
+    if (candidate?.groundingMetadata) groundingMetadata = candidate.groundingMetadata;
+    if (chunk.promptFeedback) promptFeedback = chunk.promptFeedback;
+  }
+  if (errorChunk) return errorChunk;
+  return { candidates: [{ content: { parts }, finishReason, safetyRatings, groundingMetadata }], promptFeedback };
+}
+
 // R1: Token is fetched inside the function just before the Vertex AI call.
 async function callGemini(
   sa: ServiceAccount,
@@ -326,11 +365,14 @@ async function callGemini(
   cancelSignal?: AbortSignal
 ): Promise<{ base64: string; mimeType: string; grounded?: boolean }> {
   const accessToken = await getAccessToken(sa);
-  // Gemini image preview models are only available via the global endpoint — regional
+  // Gemini image models are only available via the global endpoint — regional
   // endpoints (e.g. us-east4) return 404. Use fetchWithRetry directly so 429s are
   // retried with backoff against the same global URL rather than falling through to a
   // regional fallback that will always fail.
-  const globalUrl = `https://aiplatform.googleapis.com/v1/projects/${sa.project_id}/locations/global/publishers/google/models/${model}:generateContent`;
+  // 2K/4K: generateContent silently ignores imageConfig.imageSize on the Flash model;
+  // streamGenerateContent honours it correctly (confirmed workaround for GA endpoint).
+  const useStream = quality === "2K" || quality === "4K";
+  const globalUrl = `https://aiplatform.googleapis.com/v1/projects/${sa.project_id}/locations/global/publishers/google/models/${model}:${useStream ? "streamGenerateContent" : "generateContent"}`;
 
   const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
   // Instruction before image: Gemini enters edit/transform mode more reliably when
@@ -362,7 +404,7 @@ async function callGemini(
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify(body),
   }, cancelSignal);
-  // R2: Wrap res.json() so a malformed response body never throws a raw SyntaxError.
+  // R2: Parse response — streaming (NDJSON) path for 2K/4K, JSON for everything else.
   let data: {
     candidates?: Array<{
       content?: { parts?: Array<Record<string, unknown>> };
@@ -374,7 +416,7 @@ async function callGemini(
     error?: { message?: string; status?: string };
   };
   try {
-    data = await res.json();
+    data = useStream && res.ok ? mergeStreamChunks(await res.text()) : await res.json();
   } catch {
     throw new Error(`Vertex AI returned a non-JSON response (status ${res.status})`);
   }

@@ -326,9 +326,10 @@ type GeminiStreamChunk = {
   error?: { message?: string; status?: string };
 };
 
-// streamGenerateContent returns NDJSON (one JSON object per line).
+// streamGenerateContent on Vertex AI returns a JSON array: [{chunk1}, {chunk2}, ...].
 // Merge all chunks into the same shape as a generateContent response
 // so the rest of callGemini can parse it identically.
+// Falls back to NDJSON (one object per line) in case the format varies.
 function mergeStreamChunks(text: string): GeminiStreamChunk {
   const parts: GeminiStreamPart[] = [];
   let finishReason: string | undefined;
@@ -336,11 +337,22 @@ function mergeStreamChunks(text: string): GeminiStreamChunk {
   let groundingMetadata: unknown;
   let promptFeedback: unknown;
   let errorChunk: GeminiStreamChunk | undefined;
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    let chunk: GeminiStreamChunk;
-    try { chunk = JSON.parse(trimmed); } catch { continue; }
+
+  let chunks: GeminiStreamChunk[] = [];
+  try {
+    // Primary: Vertex AI REST streaming returns a JSON array
+    const parsed = JSON.parse(text);
+    chunks = Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    // Fallback: NDJSON (one JSON object per line)
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try { chunks.push(JSON.parse(trimmed)); } catch { continue; }
+    }
+  }
+
+  for (const chunk of chunks) {
     if (chunk.error) { errorChunk = chunk; break; }
     const candidate = chunk.candidates?.[0];
     if (candidate?.content?.parts) parts.push(...candidate.content.parts);
@@ -416,7 +428,13 @@ async function callGemini(
     error?: { message?: string; status?: string };
   };
   try {
-    data = useStream && res.ok ? mergeStreamChunks(await res.text()) : await res.json();
+    if (useStream && res.ok) {
+      const raw = await res.text();
+      console.log(`[HomeField] streamGenerateContent raw prefix (first 200 chars): ${raw.slice(0, 200)}`);
+      data = mergeStreamChunks(raw);
+    } else {
+      data = await res.json();
+    }
   } catch {
     throw new Error(`Vertex AI returned a non-JSON response (status ${res.status})`);
   }

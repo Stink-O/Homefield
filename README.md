@@ -5,6 +5,7 @@
 # HomeField Studio
 
 [![GitHub Stars](https://img.shields.io/github/stars/Stink-O/Homefield?style=flat-square)](https://github.com/Stink-O/Homefield/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/Stink-O/Homefield?style=flat-square)](https://github.com/Stink-O/Homefield/commits/master)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square&logo=docker)](https://github.com/Stink-O/Homefield/pkgs/container/homefield)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 

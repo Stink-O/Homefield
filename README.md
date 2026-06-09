@@ -2,9 +2,14 @@
 
 > Private AI studio for image and music generation, runs on your own hardware.
 
-HomeField is built on Google Vertex AI (Gemini, Imagen, Lyria). No subscription, no dashboard, nothing leaves your network. Clone the repo, run the setup script, and you're up.
+[![GitHub Stars](https://img.shields.io/github/stars/Stink-O/Homefield?style=social)](https://github.com/Stink-O/Homefield/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/Stink-O/Homefield)](https://github.com/Stink-O/Homefield/commits/master)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/Stink-O/Homefield/pkgs/container/homefield)
+[![License](https://img.shields.io/badge/license-proprietary-red)](#license)
 
-If you've used [Higgsfield](https://higgsfield.ai), it's the same kind of gallery-first image generation experience, just self-hosted with no per-generation costs.
+HomeField runs on Google Vertex AI — Gemini, Imagen, and Lyria. No subscription, no per-generation fees, nothing leaves your network. Clone the repo, run the setup script, and you have a private AI studio running on your own hardware.
+
+If you've used [Higgsfield](https://higgsfield.ai) or [Adobe Firefly](https://firefly.adobe.com), it's the same gallery-first generation experience — except you own the server, pay nothing per image, and your prompts never touch anyone else's infrastructure.
 
 ![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
 
@@ -16,6 +21,23 @@ HomeField has full mobile support. Everything works on your phone.
     <td><img src="Github_Homefield_Mobile_prompt_window_view_image.png" alt="HomeField mobile prompt sheet" width="360"/></td>
   </tr>
 </table>
+
+<!-- DEMOS: drop animated GIFs here once recorded. See below for what to capture. -->
+<!-- image-generation-demo.gif — prompt → generate → image appears in gallery -->
+<!-- music-generation-demo.gif — music prompt → waveform plays -->
+
+---
+
+## Contents
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#set-up-with-an-ai-agent)
+- [Self-Hosting with Docker](#self-hosting-with-docker)
+- [Local Development](#local-development)
+- [First Login](#first-login)
+- [Tech Stack](#tech-stack)
+- [Roadmap](#roadmap)
 
 ---
 
@@ -49,6 +71,18 @@ HomeField has full mobile support. Everything works on your phone.
 - **Shared gallery** for broadcasting to a public live feed
 - **Multi-user support** with admin-controlled account approval
 - **Admin panel** for managing users, roles, and backups
+
+---
+
+## Prerequisites
+
+Before you start you'll need:
+
+- **Docker and Docker Compose** — [install Docker](https://docs.docker.com/get-docker/)
+- **A Google Cloud project** with the [Vertex AI API](https://console.cloud.google.com/apis/library/aiplatform.googleapis.com) enabled
+- **A service account JSON key** with the **Vertex AI User** role
+
+That's it. No GPU required — generation runs on Google's infrastructure.
 
 ---
 
@@ -191,6 +225,16 @@ UPDATE users SET role = 'admin', approved = 1 WHERE email = 'you@example.com';
 ```
 
 Database is at `storage/homefield.db` in Docker, or `web/storage/homefield.db` locally. After that, everything is managed from the Admin panel in the app.
+
+---
+
+## Roadmap
+
+- [ ] Video generation
+- [ ] Prompt chaining and multi-step workflows
+- [ ] Local model support (Ollama / ComfyUI)
+- [ ] Shareable prompt packs
+- [ ] Native mobile app
 
 ---
 

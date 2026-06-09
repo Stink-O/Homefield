@@ -5,7 +5,7 @@
 [![GitHub Stars](https://img.shields.io/github/stars/Stink-O/Homefield?style=social)](https://github.com/Stink-O/Homefield/stargazers)
 [![Last Commit](https://img.shields.io/github/last-commit/Stink-O/Homefield)](https://github.com/Stink-O/Homefield/commits/master)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/Stink-O/Homefield/pkgs/container/homefield)
-[![License](https://img.shields.io/badge/license-proprietary-red)](#license)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 HomeField runs on Google Vertex AI — Gemini, Imagen, and Lyria. No subscription, no per-generation fees, nothing leaves your network. Clone the repo, run the setup script, and you have a private AI studio running on your own hardware.
 
@@ -240,4 +240,4 @@ Database is at `storage/homefield.db` in Docker, or `web/storage/homefield.db` l
 
 ## License
 
-All rights reserved.
+[MIT](LICENSE)

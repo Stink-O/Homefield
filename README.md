@@ -1,49 +1,46 @@
+<div align="center">
+
+<img src="web/public/icon-192.png" alt="HomeField Studio" width="96" />
+
 # HomeField Studio
 
-> Private AI studio for image and music generation, runs on your own hardware.
+[![GitHub Stars](https://img.shields.io/github/stars/Stink-O/Homefield?style=flat-square)](https://github.com/Stink-O/Homefield/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/Stink-O/Homefield?style=flat-square)](https://github.com/Stink-O/Homefield/commits/master)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square&logo=docker)](https://github.com/Stink-O/Homefield/pkgs/container/homefield)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-[![GitHub Stars](https://img.shields.io/github/stars/Stink-O/Homefield?style=social)](https://github.com/Stink-O/Homefield/stargazers)
-[![Last Commit](https://img.shields.io/github/last-commit/Stink-O/Homefield)](https://github.com/Stink-O/Homefield/commits/master)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/Stink-O/Homefield/pkgs/container/homefield)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+⭐ If you like this project, star it on GitHub — it helps a lot!
 
-HomeField runs on Google Vertex AI — Gemini, Imagen, and Lyria. No subscription, no per-generation fees, nothing leaves your network. Clone the repo, run the setup script, and you have a private AI studio running on your own hardware.
+[Features](#features) • [Prerequisites](#prerequisites) • [Quick Start](#quick-start) • [Self-Hosting](#self-hosting-with-docker) • [Local Development](#local-development) • [Roadmap](#roadmap)
 
-If you've used [Higgsfield](https://higgsfield.ai) or [Adobe Firefly](https://firefly.adobe.com), it's the same gallery-first generation experience — except you own the server, pay nothing per image, and your prompts never touch anyone else's infrastructure.
+</div>
+
+---
+
+A self-hosted AI studio for image and music generation, built on Google Vertex AI. No subscription, no per-generation fees, nothing leaves your network. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
+
+If you've used [Higgsfield](https://higgsfield.ai) or [Adobe Firefly](https://firefly.adobe.com), it's the same gallery-first experience — except you own the server, pay nothing per image, and your prompts never touch anyone else's infrastructure.
 
 ![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
 
-HomeField has full mobile support. Everything works on your phone.
+![HomeField image generation demo](Github_Image_gen_DEMO.gif)
 
+<details>
+<summary>Mobile screenshots</summary>
+<br>
 <table>
   <tr>
     <td><img src="Github_Homefield_Mobile_view_image.png" alt="HomeField mobile gallery view" width="360"/></td>
     <td><img src="Github_Homefield_Mobile_prompt_window_view_image.png" alt="HomeField mobile prompt sheet" width="360"/></td>
   </tr>
 </table>
-
-![HomeField image generation demo](Github_Image_gen_DEMO.gif)
-
-<!-- music-generation-demo.gif — add here once recorded -->
-
----
-
-## Contents
-
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#set-up-with-an-ai-agent)
-- [Self-Hosting with Docker](#self-hosting-with-docker)
-- [Local Development](#local-development)
-- [First Login](#first-login)
-- [Tech Stack](#tech-stack)
-- [Roadmap](#roadmap)
+</details>
 
 ---
 
 ## Features
 
-### Image Generation
+### Image generation
 
 - **Models:** Nano Banana 2 (fast) and Nano Banana Pro (flagship)
 - **Reference images:** attach up to 14 per prompt to guide style or composition
@@ -52,7 +49,7 @@ HomeField has full mobile support. Everything works on your phone.
 - **Batch generation:** run multiple generations from the same prompt at once
 - **Search grounding:** optionally anchor generations in live web context
 
-### Music Generation
+### Music generation
 
 - **Text-to-music** via Google Lyria
 - **Duration:** 30s, 60s, 3 min, 4 min
@@ -76,17 +73,16 @@ HomeField has full mobile support. Everything works on your phone.
 
 ## Prerequisites
 
-Before you start you'll need:
-
 - **Docker and Docker Compose** — [install Docker](https://docs.docker.com/get-docker/)
 - **A Google Cloud project** with the [Vertex AI API](https://console.cloud.google.com/apis/library/aiplatform.googleapis.com) enabled
 - **A service account JSON key** with the **Vertex AI User** role
 
-That's it. No GPU required — generation runs on Google's infrastructure.
+> [!NOTE]
+> No GPU required — all generation runs on Google's infrastructure.
 
 ---
 
-## Set Up with an AI Agent
+## Quick Start
 
 Paste this into any AI agent (Claude, ChatGPT, Gemini, etc.) and it will walk you through the entire setup:
 
@@ -124,29 +120,12 @@ Work through these steps in order, confirm each one is done before moving on, an
 Let me know when everything is up and I can log in.
 ```
 
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5 |
-| Styling | Tailwind CSS 4 |
-| Animation | Framer Motion |
-| AI (Image and Music) | Google Vertex AI (Gemini, Imagen, Lyria) |
-| AI (Fallback) | Replicate |
-| Database | SQLite via Drizzle ORM + better-sqlite3 |
-| Auth | NextAuth v5 |
-| Real-time | Server-Sent Events (SSE) |
-| Image processing | Sharp |
-| Audio waveforms | Wavesurfer.js |
+> [!TIP]
+> The agent handles Google Cloud setup, credentials, Docker configuration, and first login end-to-end.
 
 ---
 
 ## Self-Hosting with Docker
-
-**You'll need:** Docker and Docker Compose, a Google Cloud project with the Vertex AI API enabled, and a service account JSON key with the Vertex AI User role.
 
 ```bash
 git clone https://github.com/Stink-O/Homefield.git
@@ -154,7 +133,7 @@ cd Homefield
 bash setup.sh
 ```
 
-The script handles configuration, pulls the image, and starts the container.
+The setup script handles configuration, pulls the image, and starts the container.
 
 ### Manual setup
 
@@ -221,6 +200,24 @@ After that, new accounts require admin approval before they can generate anythin
 
 ---
 
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript 5 |
+| Styling | Tailwind CSS 4 |
+| Animation | Framer Motion |
+| AI (Image and Music) | Google Vertex AI (Gemini, Imagen, Lyria) |
+| AI (Fallback) | Replicate |
+| Database | SQLite via Drizzle ORM + better-sqlite3 |
+| Auth | NextAuth v5 |
+| Real-time | Server-Sent Events (SSE) |
+| Image processing | Sharp |
+| Audio waveforms | Wavesurfer.js |
+
+---
+
 ## Roadmap
 
 - [ ] Video generation
@@ -228,9 +225,3 @@ After that, new accounts require admin approval before they can generate anythin
 - [ ] Local model support (Ollama / ComfyUI)
 - [ ] Shareable prompt packs
 - [ ] Native mobile app
-
----
-
-## License
-
-[MIT](LICENSE)

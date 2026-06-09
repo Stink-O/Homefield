@@ -119,8 +119,7 @@ Work through these steps in order, confirm each one is done before moving on, an
    Then start it:
    docker compose -f docker-compose.homelab.yml up -d
 
-6. Once the app is running, help me register an account and promote it to admin by running this against storage/homefield.db:
-   UPDATE users SET role = 'admin', approved = 1 WHERE email = 'my@email.com';
+6. Once the app is running, open it in a browser. You'll be directed to /setup to create the first admin account — just fill in a username, email, and password.
 
 Let me know when everything is up and I can log in.
 ```
@@ -216,15 +215,9 @@ Open `http://localhost:3000`. For HTTPS in dev, drop `cert.pem` and `key.pem` in
 
 ## First Login
 
-Register an account once the app is running. New accounts need admin approval before they can generate anything.
+When you open HomeField for the first time, you'll be directed to `/setup` to create the initial admin account. Fill in a username, email, and password — that's it. The setup page disables itself once an admin exists.
 
-There are no admins on first boot, so promote your first user manually:
-
-```sql
-UPDATE users SET role = 'admin', approved = 1 WHERE email = 'you@example.com';
-```
-
-Database is at `storage/homefield.db` in Docker, or `web/storage/homefield.db` locally. After that, everything is managed from the Admin panel in the app.
+After that, new accounts require admin approval before they can generate anything. Everything is managed from the Admin panel in the app.
 
 ---
 

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="web/public/icon-192.png" alt="HomeField Studio" width="96" />
+<img src="web/public/logo.png" alt="HomeField Studio" width="96" />
 
 # HomeField Studio
 

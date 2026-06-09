@@ -53,14 +53,11 @@ export function saveWorkspaces(workspaces: Workspace[]): void {
 
 const LAST_WORKSPACE_KEY = "homefield_last_workspace";
 
-/** Returns the last active workspace id, validated against the stored workspace list. */
+/** Returns the last active workspace id. Validation against the server workspace list happens in AppContext after fetch. */
 export function getLastWorkspaceId(): string {
   if (typeof window === "undefined") return "main";
   try {
-    const saved = localStorage.getItem(LAST_WORKSPACE_KEY);
-    if (!saved) return "main";
-    const workspaces = getWorkspaces();
-    return workspaces.some((w) => w.id === saved) ? saved : "main";
+    return localStorage.getItem(LAST_WORKSPACE_KEY) ?? "main";
   } catch {
     return "main";
   }

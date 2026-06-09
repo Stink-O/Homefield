@@ -69,7 +69,6 @@ export const MODELS: ModelOption[] = [
     label: "Nano Banana 2",
     shortLabel: "NB2",
     description: "Pro-level quality at Flash speed",
-    badge: "NEW",
   },
   {
     id: "gemini-3-pro-image",

@@ -22,9 +22,9 @@ HomeField has full mobile support. Everything works on your phone.
   </tr>
 </table>
 
-<!-- DEMOS: drop animated GIFs here once recorded. See below for what to capture. -->
-<!-- image-generation-demo.gif — prompt → generate → image appears in gallery -->
-<!-- music-generation-demo.gif — music prompt → waveform plays -->
+![HomeField image generation demo](Github_Image_gen_DEMO.gif)
+
+<!-- music-generation-demo.gif — add here once recorded -->
 
 ---
 

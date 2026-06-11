@@ -19,7 +19,7 @@
 
 A self-hosted AI studio for image and music generation, built on Google Vertex AI. No subscription, no per-generation fees, nothing leaves your network. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
 
-If you've used [Higgsfield](https://higgsfield.ai) or [Adobe Firefly](https://firefly.adobe.com), it's the same gallery-first experience — except you own the server, pay nothing per image, and your prompts never touch anyone else's infrastructure.
+If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first experience, except you own the server, pay nothing per image, and your prompts never touch anyone else's infrastructure.
 
 ![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
 
@@ -45,11 +45,11 @@ If you've used [Higgsfield](https://higgsfield.ai) or [Adobe Firefly](https://fi
 - **Models:** Nano Banana 2 (fast) and Nano Banana Pro (flagship)
 - **Reference images:** attach up to 14 per prompt to guide style or composition
 - **Aspect ratios:** Auto, 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
-- **Resolution:** 1K, 2K, or 4K output
+- **Resolution:** 512, 1K, 2K, or 4K output
 - **Batch generation:** run multiple generations from the same prompt at once
 - **Search grounding:** optionally anchor generations in live web context
 
-### Music generation
+### Music generation _(work in progress)_
 
 - **Text-to-music** via Google Lyria
 - **Duration:** 30s, 60s, 3 min, 4 min
@@ -59,7 +59,7 @@ If you've used [Higgsfield](https://higgsfield.ai) or [Adobe Firefly](https://fi
 ### Organisation
 
 - **Project workspaces** to separate generations by project or client
-- **Prompt template library** with categories, favourites, and "For You" recommendations based on your history
+- **Prompt template library** with categories, favourites, and "For You" recommendations based on your history (powered by Google's text-embedding-004 model)
 - **Cross-device sync** so everything follows your account across devices and tabs
 
 ### Collaboration
@@ -73,18 +73,21 @@ If you've used [Higgsfield](https://higgsfield.ai) or [Adobe Firefly](https://fi
 
 ## Prerequisites
 
-- **Docker and Docker Compose** — [install Docker](https://docs.docker.com/get-docker/)
+> [!IMPORTANT]
+> HomeField runs entirely on Google Cloud infrastructure. You need a Google Cloud Console account to use it. If you have a Google account, you already have access at [cloud.google.com](https://cloud.google.com). New accounts get $300 in free credits valid for 90 days, which covers months of regular use.
+
 - **A Google Cloud project** with the [Vertex AI API](https://console.cloud.google.com/apis/library/aiplatform.googleapis.com) enabled
 - **A service account JSON key** with the **Vertex AI User** role
+- **Docker and Docker Compose** ([install Docker](https://docs.docker.com/get-docker/))
 
 > [!NOTE]
-> No GPU required — all generation runs on Google's infrastructure.
+> No GPU required. All generation runs on Google's infrastructure.
 
 ---
 
 ## Quick Start
 
-Paste this into any AI agent (Claude, ChatGPT, Gemini, etc.) and it will walk you through the entire setup:
+Paste this into any AI coding agent (Claude Code / Cowork, Codex, Hermes, or Openclaw) and it will walk you through the entire setup:
 
 ```
 I want to self-host HomeField Studio, an AI image and music generation web app that runs on Google Vertex AI. Help me get it running from scratch.
@@ -107,7 +110,7 @@ Work through these steps in order, confirm each one is done before moving on, an
    Or if I'd rather do it manually, help me create homefield.env in the repo root with:
    AUTH_SECRET        (generate with: openssl rand -base64 32)
    AUTH_TRUST_HOST=true
-   AUTH_URL           (the URL I'll access the app from, e.g. http://192.168.1.100:3000)
+   AUTH_URL           (the URL I'll access the app from, e.g. http://localhost:3000)
    GOOGLE_APPLICATION_CREDENTIALS_JSON  (the single-line JSON key from step 4)
    GENERATION_PROVIDER=vertex
    NODE_ENV=production
@@ -142,7 +145,7 @@ Create `homefield.env` in the repo root:
 ```env
 AUTH_SECRET=           # openssl rand -base64 32
 AUTH_TRUST_HOST=true
-AUTH_URL=              # e.g. http://192.168.1.100:3000
+AUTH_URL=              # e.g. http://localhost:3000
 GOOGLE_APPLICATION_CREDENTIALS_JSON=   # service account JSON as a single line
 GENERATION_PROVIDER=vertex
 REPLICATE_API_TOKEN=   # only needed if GENERATION_PROVIDER=replicate

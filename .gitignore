@@ -12,6 +12,17 @@ desktop.ini
 
 # Claude Code local settings and agent memory
 .claude/
+.agents/
+.impeccable/
+skills-lock.json
 
 # Claude Swarm
 .swarm/
+
+# Local planning and dev notes
+DESIGN.md
+PREVIEW_MERGE_PLAN.md
+PRODUCT.md
+
+# One-off scripts
+web/resetpw.js

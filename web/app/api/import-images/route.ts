@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { images } from "@/lib/db/schema";
+import { images, workspaces } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/authHelpers";
 import { saveImageFile } from "@/lib/fileStorage";
 import crypto from "crypto";
 
 export const maxDuration = 120;
+
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const KNOWN_RATIOS = [
   { label: "1:1",  w: 1,  h: 1  },
@@ -44,6 +47,14 @@ export async function POST(req: NextRequest) {
 
   const rawWorkspaceId = formData.get("workspaceId") as string | null;
   const effectiveWorkspaceId = (!rawWorkspaceId || rawWorkspaceId === "main") ? null : rawWorkspaceId;
+
+  if (effectiveWorkspaceId) {
+    const ws = await db.query.workspaces.findFirst({
+      where: and(eq(workspaces.id, effectiveWorkspaceId), eq(workspaces.userId, auth.userId)),
+    });
+    if (!ws) return NextResponse.json({ error: "Invalid workspace" }, { status: 400 });
+  }
+
   const files = formData.getAll("images") as File[];
 
   if (!files.length) {
@@ -60,7 +71,7 @@ export async function POST(req: NextRequest) {
     const results = await Promise.allSettled(
       batch.map(async (file) => {
         const mimeType = file.type || "image/jpeg";
-        if (!mimeType.startsWith("image/")) throw new Error("Not an image");
+        if (!ALLOWED_MIME_TYPES.has(mimeType)) throw new Error("Unsupported image type");
 
         const buffer = Buffer.from(await file.arrayBuffer());
         const base64 = buffer.toString("base64");

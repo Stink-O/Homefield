@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { ServiceAccount, parseServiceAccount, getAccessToken } from "@/lib/vertexAuth";
+import { AttachedImage } from "@/lib/types";
 import { createJob, resolveJob, failJob, registerJobAbort, unregisterJobAbort } from "@/lib/jobs";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -56,55 +58,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 // This is a fire-and-forget generation endpoint; caching would be wrong.
 export const dynamic = "force-dynamic";
 
-interface ServiceAccount {
-  project_id: string;
-  private_key: string;
-  client_email: string;
-  token_uri: string;
-}
-
-// R3: Parse and validate service account credentials at module load time.
+// Parse and validate service account credentials at module load time.
 // If the env var is set but malformed, throw immediately so the misconfiguration is
 // visible at startup rather than silently failing at request time.
-function parseServiceAccount(raw: string): ServiceAccount {
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON: not valid JSON");
-  }
-  for (const field of ["private_key", "client_email", "token_uri", "project_id"] as const) {
-    if (typeof parsed[field] !== "string" || !(parsed[field] as string)) {
-      throw new Error(`Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON: missing field ${field}`);
-    }
-  }
-  return parsed as unknown as ServiceAccount;
-}
-
-const _credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-// Only parse at module level if the env var is present; absence is handled per-request.
-const MODULE_SA: ServiceAccount | null = _credJson ? parseServiceAccount(_credJson) : null;
-
-function createJWT(sa: ServiceAccount): string {
-  const now = Math.floor(Date.now() / 1000);
-  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(JSON.stringify({
-    iss: sa.client_email,
-    sub: sa.client_email,
-    aud: sa.token_uri,
-    iat: now,
-    exp: now + 3600,
-    scope: "https://www.googleapis.com/auth/cloud-platform",
-  })).toString("base64url");
-
-  const signingInput = `${header}.${payload}`;
-  const sign = crypto.createSign("RSA-SHA256");
-  sign.update(signingInput);
-  const signature = sign.sign(sa.private_key, "base64url");
-  return `${signingInput}.${signature}`;
-}
-
-let cachedToken: { value: string; expiresAt: number } | null = null;
+const MODULE_SA: ServiceAccount | null = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
+  ? parseServiceAccount(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
+  : null;
 
 // --- Vertex AI concurrency limiter ---
 // Preview Gemini models have strict QPM quotas. Bursting N concurrent requests
@@ -147,38 +106,6 @@ function drainVertexQueue(err: Error): void {
   for (const entry of queued) {
     entry.drain(err);
   }
-}
-
-async function getAccessToken(sa: ServiceAccount): Promise<string> {
-  // Reuse token if it has more than 5 minutes remaining
-  if (cachedToken && cachedToken.expiresAt - Date.now() > 5 * 60 * 1000) {
-    return cachedToken.value;
-  }
-  const jwt = createJWT(sa);
-  const tokenController = new AbortController();
-  const tokenTimer = setTimeout(() => tokenController.abort(), 10_000);
-  let res: Response;
-  try {
-    res = await fetch(sa.token_uri, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: jwt,
-      }),
-      signal: tokenController.signal,
-    });
-  } finally {
-    clearTimeout(tokenTimer);
-  }
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error_description || "Failed to get access token");
-  }
-  const data = await res.json();
-  // Tokens are valid for 1 hour; cache with a conservative expiry
-  cachedToken = { value: data.access_token, expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000 };
-  return cachedToken.value;
 }
 
 // 429 gets more retries than transient server errors
@@ -309,11 +236,6 @@ async function callImagen(
   return { base64: prediction.bytesBase64Encoded, mimeType: prediction.mimeType || "image/png" };
 }
 
-interface AttachedImage {
-  base64: string;
-  mimeType: string;
-}
-
 type GeminiStreamPart = { text?: string; inlineData?: { mimeType: string; data: string } };
 type GeminiStreamChunk = {
   candidates?: Array<{
@@ -430,7 +352,6 @@ async function callGemini(
   try {
     if (useStream && res.ok) {
       const raw = await res.text();
-      console.log(`[HomeField] streamGenerateContent raw prefix (first 200 chars): ${raw.slice(0, 200)}`);
       data = mergeStreamChunks(raw);
     } else {
       data = await res.json();

@@ -85,9 +85,6 @@ function broadcast(userId: string, event: StreamEvent): void {
 }
 
 export function broadcastImage(userId: string, event: ImageEvent): void {
-  // TEMP DEBUG — remove after confirming cross-device sync works
-  const subs = globalThis.__hf_image_subscribers?.get(userId);
-  console.log(`[HF broadcast:private] userId=${userId.slice(0, 8)} subscribers=${subs?.size ?? 0} workspaceId=${event.workspaceId}`);
   broadcast(userId, event);
 }
 

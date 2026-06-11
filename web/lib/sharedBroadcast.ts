@@ -60,8 +60,6 @@ function broadcast(event: SharedStreamEvent): void {
 }
 
 export function broadcastShared(event: SharedImageEvent): void {
-  // TEMP DEBUG — remove after confirming cross-device sync works
-  console.log(`[HF broadcast:shared] subscribers=${globalThis.__hf_shared_subscribers?.size ?? 0}`);
   broadcast(event);
 }
 

@@ -100,9 +100,9 @@ Work through these steps in order, confirm each one is done before moving on, an
    git clone https://github.com/Stink-O/Homefield.git
    cd Homefield
 
-3. Help me set up a Google Cloud project with the Vertex AI API enabled. If I already have one, use that.
+3. I need to set up a Google Cloud project with the Vertex AI API enabled. Walk me through what to do in the Google Cloud Console. If I already have a project, use that.
 
-4. Create a service account with the "Vertex AI User" role, download a JSON key, and help me strip all the newlines out of it so it's a single line.
+4. Walk me through creating a service account with the "Vertex AI User" role and downloading a JSON key. Then help me strip all the newlines out of it so it's a single line.
 
 5. Run the setup script and help me fill in each prompt:
    bash setup.sh
@@ -118,13 +118,13 @@ Work through these steps in order, confirm each one is done before moving on, an
    Then start it:
    docker compose -f docker-compose.homelab.yml up -d
 
-6. Once the app is running, open it in a browser. You'll be directed to /setup to create the first admin account — just fill in a username, email, and password.
+6. Once the app is running, open it in a browser. You'll be directed to /setup to create the first admin account. Fill in a username, email, and password.
 
 Let me know when everything is up and I can log in.
 ```
 
 > [!TIP]
-> The agent handles Google Cloud setup, credentials, Docker configuration, and first login end-to-end.
+> The agent walks you through Docker setup and first login. Google Cloud Console steps (project creation, service account, API enable) require manual browser actions in your Google account.
 
 ---
 

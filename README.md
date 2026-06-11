@@ -23,7 +23,7 @@ If you've used [Higgsfield](https://higgsfield.ai) or [Adobe Firefly](https://fi
 
 ![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
 
-![HomeField image generation demo](Github_Image_gen_DEMO.gif)
+![HomeField image generation demo](Github_Image_gen_DEMO.webp)
 
 <details>
 <summary>Mobile screenshots</summary>

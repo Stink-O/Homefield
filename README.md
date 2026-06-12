@@ -9,7 +9,7 @@
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square&logo=docker)](https://github.com/Stink-O/Homefield/pkgs/container/homefield)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-⭐ If you like this project, star it on GitHub — it helps a lot!
+⭐ If you like this project, star it on GitHub. It helps a lot!
 
 [Features](#features) • [Prerequisites](#prerequisites) • [Quick Start](#quick-start) • [Self-Hosting](#self-hosting-with-docker) • [Local Development](#local-development) • [Roadmap](#roadmap)
 
@@ -17,9 +17,9 @@
 
 ---
 
-A self-hosted AI studio for image and music generation, built on Google Vertex AI. No subscription, no middleman markup, no consumer-app data mining — your entire library lives in SQLite and flat files on your own disk, and the only third party involved is Google's API, billed at raw rates with your own key. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
+A self-hosted AI studio for image and music generation, built on Google Vertex AI. No subscription, no middleman markup, no consumer-app data mining. Your entire library lives in SQLite and flat files on your own disk, and the only third party involved is Google's API, billed at raw rates with your own key. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
 
-If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first experience, except you own the server, the library, and the costs — no subscription, just your own Google API key.
+If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first experience, except you own the server, the library, and the costs: no subscription, just your own Google API key.
 
 ![HomeField image generation demo](Github_Image_gen_DEMO.webp)
 
@@ -87,8 +87,8 @@ If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first 
 
 HomeField itself is free (MIT). Generation runs on your own Google Cloud account:
 
-- **New GCP accounts get $300 in free credits** (valid 90 days) — months of regular use
-- After that, you pay Google's standard [Vertex AI per-image rates](https://cloud.google.com/vertex-ai/generative-ai/pricing) directly — no markup, no subscription, no minimum
+- **New GCP accounts get $300 in free credits** (valid 90 days), which covers months of regular use
+- After that, you pay Google's standard [Vertex AI per-image rates](https://cloud.google.com/vertex-ai/generative-ai/pricing) directly. No markup, no subscription, no minimum
 - Your prompts and images go to Google's API for generation and nowhere else; the library, accounts, and metadata stay on your server
 
 ---
@@ -205,7 +205,7 @@ Open `http://localhost:3000`. For HTTPS in dev, drop `cert.pem` and `key.pem` in
 
 ## First Login
 
-When you open HomeField for the first time, you'll be directed to `/setup` to create the initial admin account. Fill in a username, email, and password — that's it. The setup page disables itself once an admin exists.
+When you open HomeField for the first time, you'll be directed to `/setup` to create the initial admin account. Fill in a username, email, and password, and that's it. The setup page disables itself once an admin exists.
 
 After that, new accounts require admin approval before they can generate anything. Everything is managed from the Admin panel in the app.
 

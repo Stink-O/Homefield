@@ -17,13 +17,13 @@
 
 ---
 
-A self-hosted AI studio for image and music generation, built on Google Vertex AI. No subscription, no per-generation fees, nothing leaves your network. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
+A self-hosted AI studio for image and music generation, built on Google Vertex AI. No subscription, no middleman markup, no consumer-app data mining — your entire library lives in SQLite and flat files on your own disk, and the only third party involved is Google's API, billed at raw rates with your own key. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
 
-If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first experience, except you own the server, pay nothing per image, and your prompts never touch anyone else's infrastructure.
-
-![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
+If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first experience, except you own the server, the library, and the costs — no subscription, just your own Google API key.
 
 ![HomeField image generation demo](Github_Image_gen_DEMO.webp)
+
+![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
 
 <details>
 <summary>Mobile screenshots</summary>
@@ -82,6 +82,14 @@ If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first 
 
 > [!NOTE]
 > No GPU required. All generation runs on Google's infrastructure.
+
+### What it costs
+
+HomeField itself is free (MIT). Generation runs on your own Google Cloud account:
+
+- **New GCP accounts get $300 in free credits** (valid 90 days) — months of regular use
+- After that, you pay Google's standard [Vertex AI per-image rates](https://cloud.google.com/vertex-ai/generative-ai/pricing) directly — no markup, no subscription, no minimum
+- Your prompts and images go to Google's API for generation and nowhere else; the library, accounts, and metadata stay on your server
 
 ---
 

@@ -17,7 +17,7 @@
 
 ---
 
-A self-hosted AI studio for image and music generation, built on Google Vertex AI. No subscription, no middleman markup, no consumer-app data mining. Your entire library lives in SQLite and flat files on your own disk, and the only third party involved is Google's API, billed at raw rates with your own key. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
+A self-hosted AI studio for image and music generation, built on Google's Gemini Enterprise platform (formerly Vertex AI). No subscription, no middleman markup, no consumer-app data mining. Your entire library lives in SQLite and flat files on your own disk, and the only third party involved is Google's API, billed at raw rates with your own key. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
 
 If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first experience, except you own the server, the library, and the costs: no subscription, just your own Google API key.
 
@@ -76,9 +76,12 @@ If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first 
 > [!IMPORTANT]
 > HomeField runs entirely on Google Cloud infrastructure. You need a Google Cloud Console account to use it. If you have a Google account, you already have access at [cloud.google.com](https://cloud.google.com). New accounts get $300 in free credits valid for 90 days, which covers months of regular use.
 
-- **A Google Cloud project** with the [Vertex AI API](https://console.cloud.google.com/apis/library/aiplatform.googleapis.com) enabled
-- **A service account JSON key** with the **Vertex AI User** role
+- **A Google Cloud project** with the [Gemini Enterprise API](https://console.cloud.google.com/apis/library/aiplatform.googleapis.com) (`aiplatform.googleapis.com`) enabled
+- **A service account JSON key** with the **Vertex AI User** role (`roles/aiplatform.user`; the console may show it under the newer Gemini Enterprise branding)
 - **Docker and Docker Compose** ([install Docker](https://docs.docker.com/get-docker/))
+
+> [!NOTE]
+> Google renamed Vertex AI to **Gemini Enterprise** in April 2026. The console shows the new branding, but the underlying APIs, roles, and this app's configuration are unchanged.
 
 > [!NOTE]
 > No GPU required. All generation runs on Google's infrastructure.
@@ -88,7 +91,7 @@ If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first 
 HomeField itself is free (MIT). Generation runs on your own Google Cloud account:
 
 - **New GCP accounts get $300 in free credits** (valid 90 days), which covers months of regular use
-- After that, you pay Google's standard [Vertex AI per-image rates](https://cloud.google.com/vertex-ai/generative-ai/pricing) directly. No markup, no subscription, no minimum
+- After that, you pay Google's standard [Gemini Enterprise per-image rates](https://cloud.google.com/vertex-ai/generative-ai/pricing) directly. No markup, no subscription, no minimum
 - Your prompts and images go to Google's API for generation and nowhere else; the library, accounts, and metadata stay on your server
 
 ---
@@ -98,7 +101,7 @@ HomeField itself is free (MIT). Generation runs on your own Google Cloud account
 Paste this into any AI coding agent (Claude Code / Cowork, Codex, Hermes, or Openclaw) and it will walk you through the entire setup:
 
 ```
-I want to self-host HomeField Studio, an AI image and music generation web app that runs on Google Vertex AI. Help me get it running from scratch.
+I want to self-host HomeField Studio, an AI image and music generation web app that runs on Google's Gemini Enterprise platform (formerly Vertex AI). Help me get it running from scratch.
 
 Work through these steps in order, confirm each one is done before moving on, and ask me for any information you need along the way:
 
@@ -108,9 +111,9 @@ Work through these steps in order, confirm each one is done before moving on, an
    git clone https://github.com/Stink-O/Homefield.git
    cd Homefield
 
-3. I need to set up a Google Cloud project with the Vertex AI API enabled. Walk me through what to do in the Google Cloud Console. If I already have a project, use that.
+3. I need to set up a Google Cloud project with the Gemini Enterprise API (aiplatform.googleapis.com, formerly the Vertex AI API) enabled. Walk me through what to do in the Google Cloud Console. If I already have a project, use that.
 
-4. Walk me through creating a service account with the "Vertex AI User" role and downloading a JSON key. Then help me strip all the newlines out of it so it's a single line.
+4. Walk me through creating a service account with the "Vertex AI User" role (roles/aiplatform.user, may appear under Gemini Enterprise branding) and downloading a JSON key. Then help me strip all the newlines out of it so it's a single line.
 
 5. Run the setup script and help me fill in each prompt:
    bash setup.sh
@@ -197,8 +200,8 @@ Open `http://localhost:3000`. For HTTPS in dev, drop `cert.pem` and `key.pem` in
 
 ### Google credentials
 
-1. Enable the **Vertex AI API** in [Google Cloud Console](https://console.cloud.google.com)
-2. Create a service account with the **Vertex AI User** role and download the JSON key
+1. Enable the **Gemini Enterprise API** (`aiplatform.googleapis.com`) in [Google Cloud Console](https://console.cloud.google.com)
+2. Create a service account with the **Vertex AI User** role (`roles/aiplatform.user`) and download the JSON key
 3. Remove all newlines from the file so it's one line, paste it as `GOOGLE_APPLICATION_CREDENTIALS_JSON`
 
 ---
@@ -219,7 +222,7 @@ After that, new accounts require admin approval before they can generate anythin
 | Language | TypeScript 5 |
 | Styling | Tailwind CSS 4 |
 | Animation | Framer Motion |
-| AI (Image and Music) | Google Vertex AI (Gemini, Imagen, Lyria) |
+| AI (Image and Music) | Google Gemini Enterprise, formerly Vertex AI (Gemini, Imagen, Lyria) |
 | AI (Fallback) | Replicate |
 | Database | SQLite via Drizzle ORM + better-sqlite3 |
 | Auth | NextAuth v5 |

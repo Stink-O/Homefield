@@ -371,7 +371,7 @@ export default function MusicPage() {
               onClick={e => e.stopPropagation()}
               style={{ position: "relative", maxWidth: "min(720px, 90vw)", maxHeight: "80vh" }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img src={attachedImage.preview} alt="Reference image" style={{ display: "block", maxWidth: "100%", maxHeight: "80vh", objectFit: "contain", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)" }} />
               <button
                 onClick={() => setImagePreviewOpen(false)}

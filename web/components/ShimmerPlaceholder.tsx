@@ -23,12 +23,15 @@ export default function ShimmerPlaceholder({ prompt, startedAt, failed, errorMes
     if (failed) return;
     // If the parent provides explicit generating state (e.g. from Replicate queue status), use it directly
     if (generating !== undefined) {
+      // Syncing with an external signal (Replicate queue status) — intentional.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsGenerating(generating);
       return;
     }
     const elapsedMs = Date.now() - (startedAt ?? Date.now());
     const remaining = Math.max(0, 2500 - elapsedMs);
     if (remaining === 0) {
+       
       setIsGenerating(true);
       return;
     }
@@ -40,6 +43,8 @@ export default function ShimmerPlaceholder({ prompt, startedAt, failed, errorMes
 
   useEffect(() => {
     if (!showElapsed || failed) return;
+    // Seed the elapsed counter immediately so the badge doesn't show 0s for a second.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setElapsed(Math.floor((Date.now() - (startedAt ?? Date.now())) / 1000));
     intervalRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - (startedAt ?? Date.now())) / 1000));

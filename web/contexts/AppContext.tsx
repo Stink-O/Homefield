@@ -311,7 +311,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [session?.user?.id]);
 
   // Persist the active workspace so it survives a refresh.
@@ -333,7 +333,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         dispatchRef.current({ type: "SET_HISTORY_LOADING", payload: false });
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [state.currentWorkspaceId, session?.user?.id]);
 
   useEffect(() => {

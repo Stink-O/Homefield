@@ -5,8 +5,7 @@ import { AttachedImage } from "@/lib/types";
 import { createJob, resolveJob, failJob, registerJobAbort, unregisterJobAbort } from "@/lib/jobs";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { images, users, workspaces } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { images } from "@/lib/db/schema";
 import { saveImageFile, saveReferenceImages, deleteImageFile, deleteReferenceImages } from "@/lib/fileStorage";
 import { broadcastShared } from "@/lib/sharedBroadcast";
 import { broadcastImage, broadcastPendingStart, broadcastPendingEnd, broadcastPendingProcessing } from "@/lib/imageBroadcast";
@@ -40,6 +39,10 @@ const ALLOWED_ASPECT_RATIOS = new Set([
 ]);
 
 const ALLOWED_QUALITIES = new Set(["512", "1K", "2K", "4K"]);
+
+// Maximum prompt length. Template prompts can be long JSON blocks, but anything
+// beyond this is abuse — it would be stored in SQLite and re-broadcast over SSE.
+const MAX_PROMPT_LENGTH = 20_000;
 
 // Maximum base64 string length for a single reference image.
 // Vertex AI allows 7 MB per image; base64 encodes at ~4/3x, so ~9.5 MB. Use 10 MB as ceiling.
@@ -447,6 +450,12 @@ export async function POST(req: NextRequest) {
 
   if (typeof prompt !== "string" || !prompt.trim()) {
     return NextResponse.json({ error: "Prompt required" }, { status: 400 });
+  }
+  if (prompt.length > MAX_PROMPT_LENGTH) {
+    return NextResponse.json(
+      { error: `Prompt exceeds maximum length of ${MAX_PROMPT_LENGTH} characters` },
+      { status: 400 },
+    );
   }
 
   // model: must be an allowlisted value (or absent, which defaults to imagen)

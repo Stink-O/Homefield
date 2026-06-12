@@ -194,7 +194,7 @@ const SharedCard = memo(function SharedCard({
         }}
       >
         {thumbnailSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={thumbnailSrc} alt={image.prompt} className="block h-full w-full object-cover" draggable={false}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           />
@@ -350,7 +350,9 @@ function SharedLightbox({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [refPreviewIndex, setRefPreviewIndex] = useState<number | null>(null);
 
+  // Intentional reset-on-prop-change; a render-time rewrite would change timing.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSeeAll(false);
     setPromptExpanded(false);
     setCopiedPanel(false);

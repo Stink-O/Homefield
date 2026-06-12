@@ -34,7 +34,7 @@ export interface SharedPendingEndEvent {
 export type SharedStreamEvent = SharedImageEvent | SharedPendingStartEvent | SharedPendingEndEvent;
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __hf_shared_subscribers: Set<(event: SharedStreamEvent) => void> | undefined;
 }
 

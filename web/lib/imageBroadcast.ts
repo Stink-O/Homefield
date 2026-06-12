@@ -52,7 +52,7 @@ export interface ImageDeleteEvent {
 export type StreamEvent = ImageEvent | PendingStartEvent | PendingEndEvent | PendingProcessingEvent | ImageDeleteEvent;
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __hf_image_subscribers: Map<string, Set<(event: StreamEvent) => void>> | undefined;
 }
 

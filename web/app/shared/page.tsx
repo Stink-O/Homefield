@@ -20,7 +20,7 @@ import {
   normalizeModelId,
 } from "@/lib/types";
 import { randomUUID } from "@/lib/uuid";
-import { getPendingJobs, removePendingJob, addFailedJob, getFailedJobs, removeFailedJob } from "@/lib/pendingJobs";
+import { removePendingJob, addFailedJob, getFailedJobs, removeFailedJob } from "@/lib/pendingJobs";
 import SharedGallery from "@/components/SharedGallery";
 import type { SharedStreamEvent } from "@/lib/sharedBroadcast";
 
@@ -61,7 +61,6 @@ export default function SharedSpacePage() {
   const { data: session } = useSession();
   const [pending, setPending] = useState<PendingGeneration[]>([]);
   const [sharedImages, setSharedImages] = useState<GeneratedImageMeta[]>([]);
-  const [hasMore, setHasMore] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [batchMode, setBatchMode] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -86,9 +85,8 @@ export default function SharedSpacePage() {
     Promise.all([
       fetch("/api/shared/images?limit=30").then((r) => r.ok ? r.json() : { items: [], hasMore: false }),
       fetch("/api/shared/pending").then((r) => r.ok ? r.json() : []),
-    ]).then(([{ items, hasMore: more }, pendingJobs]) => {
+    ]).then(([{ items }, pendingJobs]) => {
       setSharedImages(items);
-      setHasMore(more);
       // Restore server-tracked pending generations as shimmers
       if (Array.isArray(pendingJobs) && pendingJobs.length > 0) {
         setPending((prev) => {

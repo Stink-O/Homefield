@@ -17,11 +17,11 @@ export interface Job {
 // Use global singletons so Maps are shared across Next.js route bundles
 // (each API route gets its own module instance otherwise).
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __hf_jobs: Map<string, Job> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __hf_jobs_gc: ReturnType<typeof setInterval> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __hf_job_aborts: Map<string, () => void> | undefined;
 }
 

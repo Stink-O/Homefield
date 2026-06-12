@@ -1,8 +1,8 @@
-import { GeneratedImage, GeneratedImageMeta, Workspace } from "./types";
+// Client-side persistence. Image history and templates moved server-side long ago;
+// what remains here is the small set of things that genuinely belong on the device:
+// the last active workspace (localStorage) and draft reference images plus legacy
+// history cleanup (IndexedDB, because the payloads are large base64 strings).
 
-const API_KEY_STORAGE = "homefield_api_key";
-const WORKSPACES_STORAGE = "homefield_workspaces";
-const DEFAULT_WORKSPACE: Workspace = { id: "main", name: "Main", createdAt: 0 };
 const DB_NAME = "homefield_db";
 const DB_VERSION = 6;
 const STORE_NAME = "images";
@@ -19,37 +19,7 @@ export interface UserTemplate {
   createdAt: number;
 }
 
-// ── API Key (localStorage — small string, fine here) ─────────────────────────
-
-export function getApiKey(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem(API_KEY_STORAGE) || "";
-}
-
-export function setApiKey(key: string): void {
-  localStorage.setItem(API_KEY_STORAGE, key);
-}
-
-export function removeApiKey(): void {
-  localStorage.removeItem(API_KEY_STORAGE);
-}
-
-// ── Workspaces (localStorage — small data, fine here) ────────────────────────
-
-export function getWorkspaces(): Workspace[] {
-  if (typeof window === "undefined") return [DEFAULT_WORKSPACE];
-  try {
-    const raw = localStorage.getItem(WORKSPACES_STORAGE);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [DEFAULT_WORKSPACE];
-  } catch {
-    return [DEFAULT_WORKSPACE];
-  }
-}
-
-export function saveWorkspaces(workspaces: Workspace[]): void {
-  localStorage.setItem(WORKSPACES_STORAGE, JSON.stringify(workspaces));
-}
+// ── Last active workspace (localStorage — small string) ──────────────────────
 
 const LAST_WORKSPACE_KEY = "homefield_last_workspace";
 
@@ -97,7 +67,7 @@ function openDB(): Promise<IDBDatabase> {
         tStore.createIndex("createdAt", "createdAt", { unique: false });
       }
 
-      // v6: add dedicated metadata store so getHistoryMeta never touches base64
+      // v6: add dedicated metadata store so metadata reads never touch base64
       if (!db.objectStoreNames.contains(META_STORE_NAME)) {
         const metaStore = db.createObjectStore(META_STORE_NAME, { keyPath: "id" });
         metaStore.createIndex("timestamp", "timestamp", { unique: false });
@@ -109,7 +79,9 @@ function openDB(): Promise<IDBDatabase> {
           cursorReq.onsuccess = () => {
             const cursor = cursorReq.result;
             if (!cursor) return;
-            const { base64: _b, referenceImageDataUrls: _r, ...meta } = cursor.value;
+            const meta = { ...cursor.value };
+            delete meta.base64;
+            delete meta.referenceImageDataUrls;
             const putReq = metaStore.put(meta);
             putReq.onerror = () => console.error("[HomeField] IndexedDB v6 migration: failed to migrate record", meta.id, putReq.error);
             cursor.continue();
@@ -136,122 +108,7 @@ function openDB(): Promise<IDBDatabase> {
   return _dbPromise;
 }
 
-// ── Image History (IndexedDB — handles large base64 payloads) ─────────────────
-
-export async function getHistory(): Promise<GeneratedImage[]> {
-  if (typeof window === "undefined") return [];
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const index = tx.objectStore(STORE_NAME).index("timestamp");
-      const request = index.getAll();
-      request.onsuccess = () => {
-        const items = (request.result as GeneratedImage[]).sort(
-          (a, b) => b.timestamp - a.timestamp
-        );
-        resolve(items);
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch {
-    return [];
-  }
-}
-
-// Returns metadata-only records by reading the dedicated meta store.
-// base64 is never deserialized — zero allocation spike on load.
-export async function getHistoryMeta(
-  workspaceId: string,
-  limit: number,
-  beforeTimestamp?: number
-): Promise<{ items: GeneratedImageMeta[]; hasMore: boolean }> {
-  if (typeof window === "undefined") return { items: [], hasMore: false };
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(META_STORE_NAME, "readonly");
-      const index = tx.objectStore(META_STORE_NAME).index("timestamp");
-
-      const upperBound = beforeTimestamp !== undefined
-        ? IDBKeyRange.upperBound(beforeTimestamp, true)
-        : undefined;
-      const request = index.openCursor(upperBound ?? null, "prev");
-
-      const results: GeneratedImageMeta[] = [];
-
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor) {
-          resolve({ items: results, hasMore: false });
-          return;
-        }
-
-        const record = cursor.value as GeneratedImageMeta;
-        const recordWorkspace = record.workspaceId ?? "main";
-
-        if (recordWorkspace === workspaceId) {
-          if (results.length < limit) {
-            results.push(record);
-            if (results.length === limit) {
-              cursor.continue();
-              return;
-            }
-          } else {
-            resolve({ items: results, hasMore: true });
-            return;
-          }
-        }
-
-        cursor.continue();
-      };
-
-      request.onerror = () => reject(request.error);
-    });
-  } catch {
-    return { items: [], hasMore: false };
-  }
-}
-
-export async function getImageById(id: string): Promise<GeneratedImage | null> {
-  if (typeof window === "undefined") return null;
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const request = tx.objectStore(STORE_NAME).get(id);
-      request.onsuccess = () => resolve(request.result ?? null);
-      request.onerror = () => reject(request.error);
-    });
-  } catch {
-    return null;
-  }
-}
-
-export async function addToHistory(image: GeneratedImage): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_NAME, META_STORE_NAME], "readwrite");
-    tx.objectStore(STORE_NAME).put(image);
-    const { base64: _b, referenceImageDataUrls: _r, ...meta } = image;
-    tx.objectStore(META_STORE_NAME).put(meta);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-export async function clearHistory(): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_NAME, META_STORE_NAME], "readwrite");
-    tx.objectStore(STORE_NAME).clear();
-    tx.objectStore(META_STORE_NAME).clear();
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
+// ── Legacy local history cleanup ───────────────────────────────────────────────
 
 export async function deleteFromHistory(id: string): Promise<void> {
   if (typeof window === "undefined") return;
@@ -262,64 +119,6 @@ export async function deleteFromHistory(id: string): Promise<void> {
     tx.objectStore(META_STORE_NAME).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-  });
-}
-
-export async function updateImageWorkspace(id: string, workspaceId: string): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_NAME, META_STORE_NAME], "readwrite");
-    const imgStore = tx.objectStore(STORE_NAME);
-    const metaStore = tx.objectStore(META_STORE_NAME);
-    const getReq = imgStore.get(id);
-    getReq.onsuccess = () => {
-      const record = getReq.result;
-      if (!record) return;
-      const updated = { ...record, workspaceId };
-      imgStore.put(updated);
-      const { base64: _b, referenceImageDataUrls: _r, ...meta } = updated;
-      metaStore.put(meta);
-    };
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-// Returns all image IDs for a workspace by reading only the meta store — no base64 loaded.
-async function getIdsByWorkspace(workspaceId: string): Promise<string[]> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(META_STORE_NAME, "readonly");
-    const index = tx.objectStore(META_STORE_NAME).index("timestamp");
-    const ids: string[] = [];
-    const request = index.openCursor();
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor) { resolve(ids); return; }
-      const record = cursor.value as GeneratedImageMeta;
-      if ((record.workspaceId ?? "main") === workspaceId) ids.push(record.id);
-      cursor.continue();
-    };
-    request.onerror = () => reject(request.error);
-  });
-}
-
-export async function deleteImagesByWorkspace(workspaceId: string): Promise<void> {
-  if (typeof window === "undefined") return;
-  const ids = await getIdsByWorkspace(workspaceId);
-  if (!ids.length) return;
-  const db = await openDB();
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction([STORE_NAME, META_STORE_NAME], "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    const metaStore = tx.objectStore(META_STORE_NAME);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    for (const id of ids) {
-      store.delete(id);
-      metaStore.delete(id);
-    }
   });
 }
 
@@ -349,65 +148,4 @@ export async function loadDraftImages(): Promise<{ base64: string; mimeType: str
   } catch {
     return [];
   }
-}
-
-// ── User Templates (IndexedDB — thumbnails can be large base64 payloads) ─────
-
-export async function getUserTemplates(): Promise<UserTemplate[]> {
-  if (typeof window === "undefined") return [];
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(USER_TEMPLATES_STORE, "readonly");
-      const index = tx.objectStore(USER_TEMPLATES_STORE).index("createdAt");
-      const request = index.getAll();
-      request.onsuccess = () => {
-        const items = (request.result as UserTemplate[]).sort((a, b) => b.createdAt - a.createdAt);
-        resolve(items);
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch {
-    return [];
-  }
-}
-
-export async function saveUserTemplate(template: UserTemplate): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(USER_TEMPLATES_STORE, "readwrite");
-    const request = tx.objectStore(USER_TEMPLATES_STORE).put(template);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-export async function deleteUserTemplate(id: string): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(USER_TEMPLATES_STORE, "readwrite");
-    const request = tx.objectStore(USER_TEMPLATES_STORE).delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-export async function clearHistoryForWorkspace(workspaceId: string): Promise<void> {
-  if (typeof window === "undefined") return;
-  const ids = await getIdsByWorkspace(workspaceId);
-  if (!ids.length) return;
-  const db = await openDB();
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction([STORE_NAME, META_STORE_NAME], "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    const metaStore = tx.objectStore(META_STORE_NAME);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    for (const id of ids) {
-      store.delete(id);
-      metaStore.delete(id);
-    }
-  });
 }

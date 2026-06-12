@@ -187,7 +187,7 @@ function TrackRow({ track, index, isActive, isDeleting, displayName, isEditingTi
 
       <div style={{ position: "relative", flexShrink: 0 }}>
         <button
-          onClick={e => { e.stopPropagation(); contextMenuOpen ? onCloseContextMenu() : onOpenContextMenu(); }}
+          onClick={e => { e.stopPropagation(); if (contextMenuOpen) onCloseContextMenu(); else onOpenContextMenu(); }}
           style={{
             padding: 5, background: "none", border: "none", cursor: "pointer",
             color: hovered || contextMenuOpen ? "#a1a1aa" : "transparent",
@@ -248,6 +248,8 @@ function Player({ track, displayName, onDelete }: { track: Track; displayName: s
     interact: true,
   });
 
+  // Intentional reset-on-prop-change when switching tracks.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLyricsOpen(false); setWaveReady(false); }, [track.id]);
   useEffect(() => {
     if (!wavesurfer) return;

@@ -32,6 +32,8 @@ export function UsersTable() {
     setLoading(false);
   }
 
+  // Initial data fetch on mount — setState runs in the fetch callback, which is fine.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, []);
 
   async function approve(user: UserRecord) {

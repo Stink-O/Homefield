@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { templates, templateFavourites } from "@/lib/db/schema";
+import { templates } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/authHelpers";
 import { deleteTemplateThumb } from "@/lib/fileStorage";

@@ -529,7 +529,7 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/10">
                   <Trash2 size={16} className="text-red-400" />
                 </div>
-                <h2 className="text-base font-semibold text-text-primary">Delete "{deleteTarget.name}"?</h2>
+                <h2 className="text-base font-semibold text-text-primary">Delete &ldquo;{deleteTarget.name}&rdquo;?</h2>
               </div>
 
               <p className="text-xs text-text-secondary/60 leading-relaxed mb-5 ml-12">
@@ -592,7 +592,7 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
               </div>
 
               <p className="text-xs text-text-secondary/60 leading-relaxed mb-5 ml-12">
-                Give "{renameTarget.name}" a new name.
+                Give &ldquo;{renameTarget.name}&rdquo; a new name.
               </p>
 
               <input

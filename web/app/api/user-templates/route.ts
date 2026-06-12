@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { templates } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "@/lib/authHelpers";
-import { saveTemplateThumb, deleteTemplateThumb } from "@/lib/fileStorage";
+import { saveTemplateThumb } from "@/lib/fileStorage";
 import crypto from "crypto";
 
 export async function GET() {

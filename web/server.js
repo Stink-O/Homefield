@@ -2,7 +2,6 @@ const { createServer } = require("https");
 const { parse } = require("url");
 const next = require("next");
 const fs = require("fs");
-const path = require("path");
 
 const app = next({ dev: false, dir: __dirname });
 const handle = app.getRequestHandler();

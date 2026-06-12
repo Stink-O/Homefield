@@ -396,7 +396,7 @@ export default function TemplateDrawer({ open, onClose, onSelectPrompt }: Templa
 
     async function fetchPrompts() {
       const isFirstPage = page === 0;
-      isFirstPage ? setLoading(true) : setLoadingMore(true);
+      if (isFirstPage) setLoading(true); else setLoadingMore(true);
       try {
         const params = new URLSearchParams({ page: String(page), category, subcategory, search: debouncedSearch });
         const res = await fetch(`/api/templates?${params}`, { signal: controller.signal });
@@ -711,12 +711,11 @@ export default function TemplateDrawer({ open, onClose, onSelectPrompt }: Templa
   useEffect(() => {
     const btn = loadMoreRef.current;
     if (!btn || !displayedHasMore || loadingMore || page === 0) return;
-    let timer: ReturnType<typeof setTimeout>;
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setPage((p) => p + 1); },
       { threshold: 0.1 }
     );
-    timer = setTimeout(() => observer.observe(btn), 400);
+    const timer = setTimeout(() => observer.observe(btn), 400);
     return () => { clearTimeout(timer); observer.disconnect(); };
   }, [displayedHasMore, loadingMore, page]);
 

@@ -36,12 +36,19 @@ interface Manifest {
 
 export const maxDuration = 300;
 
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const FILE_EXT_RE = /^\.[a-z0-9]{2,5}$/i;
+
 async function importImage(
   imgMeta: ManifestImage,
   zip: JSZip,
   userId: string,
   workspaceIdMap: Map<string, string>,
 ): Promise<boolean> {
+  // The manifest comes from an uploaded file — never trust its media fields.
+  if (!ALLOWED_MIME_TYPES.has(imgMeta.mimeType) || !FILE_EXT_RE.test(imgMeta.fileExt)) {
+    return false;
+  }
   const imgFile = zip.file(`images/${imgMeta.id}${imgMeta.fileExt}`);
   if (!imgFile) return false;
 

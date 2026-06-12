@@ -40,7 +40,7 @@ export function createJWT(sa: ServiceAccount): string {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __hf_vertex_token: { value: string; expiresAt: number } | undefined;
 }
 

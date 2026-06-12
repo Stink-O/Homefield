@@ -146,8 +146,10 @@ function GalleryLightbox({
   const [refPreviewIndex, setRefPreviewIndex] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  // Reset all local state when navigating to a different image
+  // Reset all local state when navigating to a different image.
+  // Intentional reset-on-prop-change; a render-time rewrite would change timing.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSeeAll(false);
     setPromptExpanded(false);
     setCopiedPanel(false);
@@ -661,14 +663,6 @@ export default memo(function Gallery({ pending, onPromptSelect, onRestore, onRef
     () => allPhotos.filter((p) => p._image !== null).map((p) => p._image as GeneratedImageMeta),
     [allPhotos]
   );
-
-  const expandedIndex = useMemo(
-    () => expandedImageId !== null ? realPhotos.findIndex((img) => img.id === expandedImageId) : -1,
-    [expandedImageId, realPhotos]
-  );
-
-  // expandedImage is now GeneratedImageMeta | null (used only for navigation logic)
-  const expandedImage = expandedIndex >= 0 ? realPhotos[expandedIndex] : null;
 
   // Full image meta for the lightbox (no base64 needed — served on demand from server)
   const [lightboxImage, setLightboxImage] = useState<GeneratedImageMeta | null>(null);

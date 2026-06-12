@@ -341,6 +341,8 @@ export default function ZoomModal({ src, alt, onClose, caption, onPrev, onNext, 
             {isZoomed && (
               <>
                 {caption && <div className="w-px h-3 bg-[var(--chrome-border)]" />}
+                {/* Initial render reads the animation ref once; subsequent updates are imperative via zoomPctRef during animation frames. */}
+                {/* eslint-disable-next-line react-hooks/refs */}
                 <span ref={zoomPctRef} className="text-xs text-text-secondary/40">{Math.round(animState.current.zoom * 100)}%</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); reset(true); }}

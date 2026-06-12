@@ -6,7 +6,7 @@ export interface SharedPendingJob {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __hf_shared_pending: Map<string, SharedPendingJob> | undefined;
 }
 

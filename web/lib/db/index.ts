@@ -6,7 +6,7 @@ import fs from "fs";
 import * as schema from "./schema";
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __hf_db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 }
 

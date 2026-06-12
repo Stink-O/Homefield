@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { tracks } from "@/lib/db/schema";
 import { saveAudioFile } from "@/lib/fileStorage";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { ServiceAccount, parseServiceAccount, getAccessToken } from "@/lib/vertexAuth";
 
 const MAX_PROMPT_LENGTH = 2000;
 const LYRIA_TIMEOUT_MS = 240_000;
@@ -20,82 +21,10 @@ type LyriaModel = (typeof VALID_MODELS)[number];
 
 export const dynamic = "force-dynamic";
 
-interface ServiceAccount {
-  project_id: string;
-  private_key: string;
-  client_email: string;
-  token_uri: string;
-}
-
-function parseServiceAccount(raw: string): ServiceAccount {
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON: not valid JSON");
-  }
-  for (const field of ["private_key", "client_email", "token_uri", "project_id"] as const) {
-    if (typeof parsed[field] !== "string" || !(parsed[field] as string)) {
-      throw new Error(`Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON: missing field ${field}`);
-    }
-  }
-  return parsed as unknown as ServiceAccount;
-}
-
+// Credentials and token handling are shared with the image routes via lib/vertexAuth —
+// same JWT scope, same global token cache.
 const _credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
 const MODULE_SA: ServiceAccount | null = _credJson ? parseServiceAccount(_credJson) : null;
-
-function createJWT(sa: ServiceAccount): string {
-  const now = Math.floor(Date.now() / 1000);
-  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(
-    JSON.stringify({
-      iss: sa.client_email,
-      sub: sa.client_email,
-      aud: sa.token_uri,
-      iat: now,
-      exp: now + 3600,
-      scope: "https://www.googleapis.com/auth/cloud-platform",
-    })
-  ).toString("base64url");
-  const signingInput = `${header}.${payload}`;
-  const sign = crypto.createSign("RSA-SHA256");
-  sign.update(signingInput);
-  return `${signingInput}.${sign.sign(sa.private_key, "base64url")}`;
-}
-
-let cachedToken: { value: string; expiresAt: number } | null = null;
-
-async function getAccessToken(sa: ServiceAccount): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt - Date.now() > 5 * 60 * 1000) return cachedToken.value;
-  const jwt = createJWT(sa);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
-  let res: Response;
-  try {
-    res = await fetch(sa.token_uri, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: jwt,
-      }),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error_description || "Failed to get access token");
-  }
-  const data = await res.json();
-  cachedToken = {
-    value: data.access_token,
-    expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
-  };
-  return cachedToken.value;
-}
 
 interface LyriaOutput {
   type?: string;
@@ -129,7 +58,6 @@ async function callLyria(
     model = "lyria-3-pro-preview",
     imageData, imageMimeType, cancelSignal,
     negativePrompt, duration, bpm, intensity, instrumentalMode, userLyrics,
-    watermark, inputFiltering, outputFilteringRecitation, outputFilteringVocalLikeness, promptRewriter,
   } = options;
 
   const accessToken = await getAccessToken(sa);

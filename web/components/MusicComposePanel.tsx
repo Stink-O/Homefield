@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageIcon, X, ChevronDown, ChevronUp, Play, Trash2 } from "lucide-react";
 
@@ -464,7 +464,7 @@ export default function MusicComposePanel({
               <motion.div key="attached" initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.88 }}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px 3px 3px", background: "rgba(163,230,53,0.055)", border: "1px solid rgba(163,230,53,0.14)", borderRadius: 6 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                { }
                 <img src={attachedImage.preview} alt="" onClick={onPreviewImage} style={{ width: 22, height: 22, objectFit: "cover", borderRadius: 4, cursor: "zoom-in" }} />
                 <span onClick={onPreviewImage} style={{ fontSize: 12, color: "rgba(163,230,53,0.65)", fontFamily: "var(--font-jetbrains-mono, monospace)", letterSpacing: "0.08em", cursor: "zoom-in" }}>IMG</span>
                 <button onClick={onRemoveImage} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "rgba(163,230,53,0.4)", display: "flex", lineHeight: 1 }}><X size={11} /></button>

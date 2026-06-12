@@ -578,7 +578,7 @@ export default function Home() {
         toSize: { width: toRect.width, height: toRect.height },
       });
     }, 20);
-  }, [dispatch]);
+  }, []);
 
   // Only pass pending items for the current workspace to Gallery.
   // Merges local pending (from this device) and remote pending (from other devices via SSE).

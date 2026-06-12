@@ -19,11 +19,11 @@ export interface MusicJob {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __hf_music_jobs: Map<string, MusicJob> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __hf_music_job_aborts: Map<string, () => void> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __hf_music_jobs_gc: ReturnType<typeof setInterval> | undefined;
 }
 

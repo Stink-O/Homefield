@@ -25,3 +25,9 @@ PREVIEW_MERGE_PLAN.md
 PRODUCT.md
 PLAN.md
 TWITTER.md
+
+# Environment config files
+homefield.env
+*.env
+*.env.*
+

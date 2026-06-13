@@ -1,6 +1,7 @@
 services:
   homefield:
-    image: ghcr.io/stink-o/homefield:latest
+    build: .
+    image: homefield:latest
     container_name: homefield
     restart: unless-stopped
     ports:
@@ -11,3 +12,9 @@ services:
       - ./storage:/app/storage
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

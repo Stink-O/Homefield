@@ -49,6 +49,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/web/data ./data
 # Pre-create storage dir — volume mount overlays this, but prevents crash on empty first boot
 RUN mkdir -p /app/storage && chown -R nextjs:nodejs /app/storage
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
 USER nextjs
 
 ENTRYPOINT ["/sbin/tini", "--"]

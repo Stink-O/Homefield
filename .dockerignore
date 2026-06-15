@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# Node dependencies and build output (reinstalled / rebuilt inside the image)
+**/node_modules
+web/.next
+web/out
+web/.turbo
+
+# Local runtime data and secrets (must never end up in the image)
+storage
+**/.env
+**/.env.*
+web/cert.pem
+web/key.pem
+
+# Logs and editor cruft
+*.log
+npm-debug.log*
+.DS_Store

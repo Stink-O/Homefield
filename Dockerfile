@@ -31,7 +31,10 @@ WORKDIR /app/web
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
-ENV HOST=0.0.0.0
+# Next.js standalone server.js binds to HOSTNAME (not HOST). Docker auto-sets
+# HOSTNAME to the container id, which makes the server bind only to the container
+# IP and refuses loopback (breaking in-container healthchecks). Force 0.0.0.0.
+ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs

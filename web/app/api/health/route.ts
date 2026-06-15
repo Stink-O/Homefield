@@ -10,7 +10,7 @@ export async function GET() {
   } catch (error) {
     console.error("Health check failed:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Database connection failed" },
+      { status:"error" },
       { status: 500 }
     );
   }

@@ -15,7 +15,7 @@ export const authConfig: NextAuthConfig = {
       if (
         path === "/login" ||
         path === "/setup" ||
-        path === "api/health" ||
+        path === "/api/health" ||
         path.startsWith("/api/auth") ||
         path.startsWith("/api/files") ||
         path === "/api/register" ||

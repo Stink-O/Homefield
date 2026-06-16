@@ -12,7 +12,8 @@ import { db } from "@/lib/db";
 import { tracks } from "@/lib/db/schema";
 import { saveAudioFile } from "@/lib/fileStorage";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { ServiceAccount, parseServiceAccount, getAccessToken } from "@/lib/vertexAuth";
+import { ServiceAccount, getAccessToken } from "@/lib/vertexAuth";
+import { resolveServiceAccount } from "@/lib/credentialStore";
 
 const MAX_PROMPT_LENGTH = 2000;
 const LYRIA_TIMEOUT_MS = 240_000;
@@ -21,10 +22,9 @@ type LyriaModel = (typeof VALID_MODELS)[number];
 
 export const dynamic = "force-dynamic";
 
-// Credentials and token handling are shared with the image routes via lib/vertexAuth —
-// same JWT scope, same global token cache.
-const _credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-const MODULE_SA: ServiceAccount | null = _credJson ? parseServiceAccount(_credJson) : null;
+// Credentials and token handling are shared with the image routes via lib/vertexAuth
+// (same JWT scope, same global token cache) and resolved per request via
+// lib/credentialStore so a UI-supplied key takes effect without a restart.
 
 interface LyriaOutput {
   type?: string;
@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
     validatedImage = { data: imageData, mimeType: imageMimeType };
   }
 
-  const sa = MODULE_SA;
+  const { sa } = resolveServiceAccount();
   if (!sa) return NextResponse.json({ error: "Server credentials not configured" }, { status: 500 });
 
   const jobId = crypto.randomUUID();

@@ -53,6 +53,9 @@ interface AppState {
   historyOldestTimestamp: number | undefined;
   remotePending: RemotePendingItem[];
   processingJobIds: string[];
+  // Media-generation key status. null = not yet checked.
+  mediaKeyConfigured: boolean | null;
+  credentialModalOpen: boolean;
 }
 
 type AppAction =
@@ -82,7 +85,10 @@ type AppAction =
   | { type: "ADD_REMOTE_PENDING"; payload: RemotePendingItem }
   | { type: "REMOVE_REMOTE_PENDING"; payload: string }
   | { type: "ADD_PROCESSING_JOB"; payload: string }
-  | { type: "REMOVE_PROCESSING_JOB"; payload: string };
+  | { type: "REMOVE_PROCESSING_JOB"; payload: string }
+  | { type: "SET_MEDIA_KEY_CONFIGURED"; payload: boolean }
+  | { type: "OPEN_CREDENTIAL_MODAL" }
+  | { type: "CLOSE_CREDENTIAL_MODAL" };
 
 function reducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -188,6 +194,12 @@ function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, processingJobIds: [...state.processingJobIds, action.payload] };
     case "REMOVE_PROCESSING_JOB":
       return { ...state, processingJobIds: state.processingJobIds.filter((id) => id !== action.payload) };
+    case "SET_MEDIA_KEY_CONFIGURED":
+      return { ...state, mediaKeyConfigured: action.payload };
+    case "OPEN_CREDENTIAL_MODAL":
+      return { ...state, credentialModalOpen: true };
+    case "CLOSE_CREDENTIAL_MODAL":
+      return { ...state, credentialModalOpen: false };
     case "SET_THEME": {
       localStorage.setItem("theme", action.payload);
       document.documentElement.setAttribute("data-theme", resolveTheme(action.payload));
@@ -234,6 +246,8 @@ const initialState: AppState = {
   historyOldestTimestamp: undefined,
   remotePending: [],
   processingJobIds: [],
+  mediaKeyConfigured: null,
+  credentialModalOpen: false,
 };
 
 const AppContext = createContext<{
@@ -318,6 +332,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveLastWorkspaceId(state.currentWorkspaceId);
   }, [state.currentWorkspaceId]);
+
+  // Check whether a media-generation key is configured so the gallery can prompt
+  // for one when it is missing.
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetch("/api/admin/credentials")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) dispatchRef.current({ type: "SET_MEDIA_KEY_CONFIGURED", payload: !!data.configured });
+      })
+      .catch(() => {});
+  }, [session?.user?.id]);
 
   // Reload history whenever the active workspace changes (and we have a session).
   useEffect(() => {

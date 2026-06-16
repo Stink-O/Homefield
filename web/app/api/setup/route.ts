@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { setStoredCredentials } from "@/lib/credentialStore";
 
 const USERNAME_RE = /^[a-zA-Z0-9_-]+$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Setup has already been completed." }, { status: 403 });
   }
 
-  let body: { username?: unknown; email?: unknown; password?: unknown; confirmPassword?: unknown };
+  let body: { username?: unknown; email?: unknown; password?: unknown; confirmPassword?: unknown; googleKey?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -73,6 +74,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Username already taken" }, { status: 409 });
   }
 
+  // Optional Google service-account key. Validated structurally here (no live
+  // network test, so first-run setup stays fast and works offline); the admin can
+  // verify and rotate it later in Settings. Reject up front if it is malformed so
+  // the user fixes it rather than discovering a bad key at first generation.
+  const googleKey = typeof body.googleKey === "string" ? body.googleKey.trim() : "";
+  if (googleKey) {
+    try {
+      const { parseServiceAccount } = await import("@/lib/vertexAuth");
+      parseServiceAccount(googleKey);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Invalid service-account key";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
   const id = crypto.randomUUID();
 
@@ -91,5 +107,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Setup has already been completed." }, { status: 403 });
   }
 
-  return NextResponse.json({ success: true }, { status: 201 });
+  // Persist the key now that the admin exists. A storage failure here should not
+  // undo a successful account creation, so it is reported but non-fatal.
+  if (googleKey) {
+    try {
+      setStoredCredentials(googleKey);
+    } catch (err) {
+      console.error("[setup] failed to store Google key:", err);
+      return NextResponse.json(
+        { success: true, keyStored: false, keyError: "Account created, but the key could not be saved. Add it again in Settings." },
+        { status: 201 },
+      );
+    }
+  }
+
+  return NextResponse.json({ success: true, keyStored: !!googleKey }, { status: 201 });
 }

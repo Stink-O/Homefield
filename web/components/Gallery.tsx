@@ -532,6 +532,9 @@ function GalleryLightbox({
 
 export default memo(function Gallery({ pending, onPromptSelect, onRestore, onReference, onBatchDelete, onBatchDownload, onBatchModeChange, onBatchCopyTo, onBatchMoveTo, onCancel, onRetry }: GalleryProps) {
   const { state, dispatch, loadMoreHistory } = useApp();
+  // When the media-key bar is docked under the header, push gallery content down
+  // by its height so it isn't overlapped. Kept in sync with MediaKeyBanner.
+  const keyBarShown = state.mediaKeyConfigured === false;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchMode, setBatchMode] = useState(false);
   const [expandedImageId, setExpandedImageId] = useState<string | null>(null);
@@ -569,7 +572,7 @@ export default memo(function Gallery({ pending, onPromptSelect, onRestore, onRef
     if (!listRef.current) return;
     const rect = listRef.current.getBoundingClientRect();
     setScrollMargin(Math.round(rect.top + window.scrollY));
-  }, [containerWidth]); // re-measure when width first becomes available
+  }, [containerWidth, keyBarShown]); // re-measure on width and when the key bar toggles
 
   useEffect(() => {
     onBatchModeChange?.(batchMode);
@@ -835,7 +838,7 @@ export default memo(function Gallery({ pending, onPromptSelect, onRestore, onRef
 
   return (
     <>
-      <div className="min-h-screen pt-14 sm:pt-16 pb-52" ref={outerRef}>
+      <div className={`min-h-screen pb-52 ${keyBarShown ? "pt-[6.5rem] sm:pt-28" : "pt-14 sm:pt-16"}`} ref={outerRef}>
         {allPhotos.length > 0 && containerWidth > 0 && (
           <div
             ref={listRef}

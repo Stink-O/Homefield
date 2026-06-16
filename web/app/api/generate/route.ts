@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { ServiceAccount, parseServiceAccount, getAccessToken } from "@/lib/vertexAuth";
+import { ServiceAccount, getAccessToken } from "@/lib/vertexAuth";
+import { resolveServiceAccount } from "@/lib/credentialStore";
 import { AttachedImage } from "@/lib/types";
 import { createJob, resolveJob, failJob, registerJobAbort, unregisterJobAbort } from "@/lib/jobs";
 import { auth } from "@/lib/auth";
@@ -61,12 +62,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 // This is a fire-and-forget generation endpoint; caching would be wrong.
 export const dynamic = "force-dynamic";
 
-// Parse and validate service account credentials at module load time.
-// If the env var is set but malformed, throw immediately so the misconfiguration is
-// visible at startup rather than silently failing at request time.
-const MODULE_SA: ServiceAccount | null = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-  ? parseServiceAccount(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
-  : null;
+// Credentials are resolved per request (encrypted DB value first, then env var)
+// so an admin can add or change the key from the web UI without a restart. See
+// lib/credentialStore.ts.
 
 // --- Vertex AI concurrency limiter ---
 // Preview Gemini models have strict QPM quotas. Bursting N concurrent requests
@@ -548,7 +546,7 @@ export async function POST(req: NextRequest) {
     validatedRefImages = refImages as { base64: string; mimeType: string }[];
   }
 
-  const sa = MODULE_SA;
+  const { sa } = resolveServiceAccount();
 
   // Fetch username for shared broadcast (do this before the fire-and-forget)
   const username = session.user?.name ?? "Unknown";

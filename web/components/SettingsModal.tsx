@@ -2,12 +2,16 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronDown, Download, Upload, Check, Sun, Moon, Monitor } from "lucide-react";
+import { X, ChevronDown, Download, Upload, Check, Sun, Moon, Monitor, KeyRound, ShieldCheck } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useApp } from "@/contexts/AppContext";
 // Legacy export/import from IndexedDB removed — images now stored server-side.
 
 export default function SettingsModal() {
   const { state, dispatch } = useApp();
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
+  const keyConfigured = state.mediaKeyConfigured === true;
   const [devTools, setDevTools] = useState(() =>
     typeof window !== "undefined" && localStorage.getItem("erudaEnabled") === "true"
   );
@@ -214,6 +218,35 @@ export default function SettingsModal() {
                 {" "}via Vertex AI, using a server-side service account. Images are stored locally on this device only.
               </p>
             </div>
+
+            {isAdmin && (
+              <>
+                <div className="border-t border-[var(--border)]" />
+
+                {/* Generation credentials (admin only) */}
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-text-secondary/50 mb-3">Generation key</p>
+                  <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] p-3 border border-[var(--border)]">
+                    <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${keyConfigured ? "bg-accent/15" : "bg-[var(--border)]"}`}>
+                      {keyConfigured ? <ShieldCheck size={15} className="text-accent" /> : <KeyRound size={15} className="text-text-secondary" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-text-primary">{keyConfigured ? "Google Cloud connected" : "No key connected"}</p>
+                      <p className="text-xs text-text-secondary/50">{keyConfigured ? "Image and music generation enabled" : "Required for media generation"}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        dispatch({ type: "TOGGLE_SETTINGS" });
+                        dispatch({ type: "OPEN_CREDENTIAL_MODAL" });
+                      }}
+                      className="flex-shrink-0 rounded-lg bg-[var(--border)] px-3 py-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+                    >
+                      {keyConfigured ? "Manage" : "Add key"}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="border-t border-[var(--border)]" />
 

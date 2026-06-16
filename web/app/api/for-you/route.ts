@@ -4,7 +4,8 @@ import fs from "fs/promises";
 import { existsSync } from "fs";
 import { requireAuth } from "@/lib/authHelpers";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { ServiceAccount, parseServiceAccount, getAccessToken } from "@/lib/vertexAuth";
+import { ServiceAccount, getAccessToken } from "@/lib/vertexAuth";
+import { resolveServiceAccount } from "@/lib/credentialStore";
 
 export const dynamic = "force-dynamic";
 
@@ -116,16 +117,8 @@ export async function POST(req: NextRequest) {
   const prompts = (body.prompts ?? []).filter(Boolean).slice(0, 20);
   if (!prompts.length) return NextResponse.json({ error: "prompts required" }, { status: 400 });
 
-  const credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-  if (!credJson) return NextResponse.json({ error: "Server credentials not configured" }, { status: 500 });
-
-  let sa: ServiceAccount;
-  try {
-    sa = parseServiceAccount(credJson);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Invalid credentials";
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  const { sa } = resolveServiceAccount();
+  if (!sa) return NextResponse.json({ error: "Server credentials not configured" }, { status: 500 });
 
   const cacheResult = await loadCaches();
   if (!cacheResult.ok) {

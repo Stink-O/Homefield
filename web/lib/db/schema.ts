@@ -58,6 +58,15 @@ export const templateFavourites = sqliteTable("template_favourites", {
   pk: primaryKey({ columns: [t.userId, t.templateId] }),
 }));
 
+// Instance-wide key/value config. Values may be encrypted at rest (e.g. the
+// Google service-account JSON is stored as an AES-256-GCM payload). See
+// lib/credentialStore.ts.
+export const appConfig = sqliteTable("app_config", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
 export const tracks = sqliteTable("tracks", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

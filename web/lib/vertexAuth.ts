@@ -39,8 +39,43 @@ export function createJWT(sa: ServiceAccount): string {
   return `${signingInput}.${sign.sign(sa.private_key, "base64url")}`;
 }
 
+/**
+ * Performs a one-off token exchange to confirm a service account actually works,
+ * without touching the shared token cache. Used when an admin saves a new key so
+ * a malformed-but-parseable or revoked key is rejected at save time, not at the
+ * first generation. Throws with the provider's error message on failure.
+ */
+export async function verifyServiceAccount(sa: ServiceAccount): Promise<void> {
+  const jwt = createJWT(sa);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  let res: Response;
+  try {
+    res = await fetch(sa.token_uri, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: jwt,
+      }),
+      signal: controller.signal,
+    });
+  } catch {
+    throw new Error("Could not reach Google to verify the key. Check your connection and try again.");
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { error_description?: string }).error_description ||
+        "Google rejected this key. Make sure it is a valid, active service-account key.",
+    );
+  }
+}
+
 declare global {
-   
+
   var __hf_vertex_token: { value: string; expiresAt: number } | undefined;
 }
 

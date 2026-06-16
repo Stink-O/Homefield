@@ -7,6 +7,8 @@ import CommandBar from "@/components/CommandBar";
 import MobilePromptSheet from "@/components/MobilePromptSheet";
 import Gallery from "@/components/Gallery";
 import SettingsModal from "@/components/SettingsModal";
+import CredentialModal from "@/components/CredentialModal";
+import MediaKeyBanner from "@/components/MediaKeyBanner";
 import TemplateDrawer from "@/components/TemplateDrawer";
 import BeamOverlay from "@/components/BeamOverlay";
 import { generateImage, resumeJob } from "@/lib/gemini";
@@ -612,6 +614,8 @@ export default function Home() {
     <>
       <Header onOpenTemplate={openTemplate} />
       <SettingsModal />
+      <CredentialModal />
+      <MediaKeyBanner />
       <TemplateDrawer
         open={templateOpen}
         onClose={closeTemplate}

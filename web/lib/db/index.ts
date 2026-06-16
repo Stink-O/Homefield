@@ -40,6 +40,11 @@ if (!globalThis.__hf_db) {
     if (!trackCols.some((c) => c.name === "description")) {
       sqlite.exec("ALTER TABLE tracks ADD COLUMN description text");
     }
+    // Instance config (encrypted credentials live here). Created outside the
+    // drizzle migration set so existing databases pick it up on next boot.
+    sqlite.exec(
+      "CREATE TABLE IF NOT EXISTS app_config (key text PRIMARY KEY NOT NULL, value text NOT NULL, updated_at integer NOT NULL)",
+    );
   }
   globalThis.__hf_db = db;
 }

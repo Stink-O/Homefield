@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { Download, Maximize2, Copy, Check, Trash2, Wand2, ImagePlus, MoreVertical, ChevronRight } from "lucide-react";
+import { Download, Maximize2, Copy, Check, Trash2, Wand2, ImagePlus, MoreVertical, ChevronRight, Globe } from "lucide-react";
 import type { GeneratedImageMeta, Workspace } from "@/lib/types";
 import { MODELS, normalizeModelId } from "@/lib/types";
 import { copyText } from "@/lib/uuid";
@@ -134,6 +134,20 @@ function ImageCard({ image, index, onPromptSelect, onRestore, onReference, isSel
       }
     } catch (err) {
       console.error("[ImageCard] Copy request failed:", err);
+    }
+    setMenuOpen(false);
+    setSubMenu(null);
+  };
+
+  const handleSendToShared = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/images/${image.id}/share`, { method: "POST" });
+      if (!res.ok) {
+        console.error(`[ImageCard] Send to shared failed: ${res.status} ${res.statusText}`);
+      }
+    } catch (err) {
+      console.error("[ImageCard] Send to shared request failed:", err);
     }
     setMenuOpen(false);
     setSubMenu(null);
@@ -291,6 +305,15 @@ function ImageCard({ image, index, onPromptSelect, onRestore, onReference, isSel
             style={{ right: window.innerWidth - menuPos.x, top: menuPos.y + 4 }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button
+              onClick={handleSendToShared}
+              onMouseEnter={() => setSubMenu(null)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-amber-500 hover:bg-[var(--border)] transition-colors"
+            >
+              <Globe size={12} />
+              Send to shared
+            </button>
+            <div className="border-t border-[var(--border)] my-1" />
             <button
               onMouseEnter={(e) => handleSubMenuTrigger("copy", e)}
               onClick={(e) => handleSubMenuTrigger("copy", e)}

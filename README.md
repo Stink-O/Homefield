@@ -21,7 +21,7 @@ A self-hosted AI studio for image and music generation, built on Google's Gemini
 
 If you've used [Higgsfield](https://higgsfield.ai), it's the same gallery-first experience, except you own the server, the library, and the costs: no subscription, just your own Google API key.
 
-<video src="https://github.com/Stink-O/Homefield/raw/master/export-1781051308657.mp4" controls muted loop playsinline width="100%"></video>
+![HomeField image generation demo](Github_Image_gen_DEMO.webp)
 
 ![HomeField desktop gallery view](Github_Homefield_Desktop_view_image.png)
 

@@ -236,6 +236,7 @@ After that, new accounts require admin approval before they can generate anythin
 
 - [ ] Video generation
 - [ ] Prompt chaining and multi-step workflows
+- [ ] Agentic use (MCP server / tool API for AI agents to generate and manage images)
 - [ ] Local model support (Ollama / ComfyUI)
 - [ ] Shareable prompt packs
 - [ ] Native mobile app

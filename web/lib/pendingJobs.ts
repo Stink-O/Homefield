@@ -26,7 +26,11 @@ function load(): PendingJobEntry[] {
 }
 
 function save(entries: PendingJobEntry[]): void {
-  localStorage.setItem(KEY, JSON.stringify(entries));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(entries));
+  } catch {
+    // Best-effort — pending-job persistence (refresh/crash recovery) isn't critical to app function.
+  }
 }
 
 export function addPendingJob(entry: PendingJobEntry): void {
@@ -86,8 +90,31 @@ function loadFailed(): FailedJobEntry[] {
   }
 }
 
+// Reference images dominate entry size, and the 24h TTL alone doesn't bound how many
+// failed entries can accumulate within that window — cap total entries, and only keep
+// images on the most recent few so a burst of failures can't blow the storage quota.
+const MAX_FAILED_JOBS = 15;
+const MAX_FAILED_JOBS_WITH_IMAGES = 3;
+
+function pruneFailedForStorage(entries: FailedJobEntry[]): FailedJobEntry[] {
+  const capped = [...entries].sort((a, b) => a.failedAt - b.failedAt).slice(-MAX_FAILED_JOBS);
+  const imageCutoff = capped.length - MAX_FAILED_JOBS_WITH_IMAGES;
+  return capped.map((e, i) => (i < imageCutoff ? { ...e, images: undefined } : e));
+}
+
 function saveFailed(entries: FailedJobEntry[]): void {
-  localStorage.setItem(FAILED_KEY, JSON.stringify(entries));
+  const pruned = pruneFailedForStorage(entries);
+  try {
+    localStorage.setItem(FAILED_KEY, JSON.stringify(pruned));
+  } catch {
+    // Still over quota — drop all images and keep only the newest entry.
+    try {
+      const last = pruned[pruned.length - 1];
+      localStorage.setItem(FAILED_KEY, JSON.stringify(last ? [{ ...last, images: undefined }] : []));
+    } catch {
+      // localStorage is unusable (private browsing, quota exhausted elsewhere) — give up silently.
+    }
+  }
 }
 
 export function addFailedJob(entry: FailedJobEntry): void {

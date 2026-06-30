@@ -14,6 +14,7 @@ export interface Workspace {
 export const MODEL_IMAGE_LIMITS: Record<ModelId, number> = {
   "gemini-3.1-flash-image": 14,
   "gemini-3-pro-image": 14,
+  "gemini-3.1-flash-lite-image": 14,
 };
 
 export interface GeneratedImage {
@@ -44,7 +45,8 @@ export type GeneratedImageMeta = Omit<GeneratedImage, "base64">;
 
 export type ModelId =
   | "gemini-3.1-flash-image"
-  | "gemini-3-pro-image";
+  | "gemini-3-pro-image"
+  | "gemini-3.1-flash-lite-image";
 
 const LEGACY_MODEL_MAP: Record<string, ModelId> = {
   "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image",
@@ -76,6 +78,12 @@ export const MODELS: ModelOption[] = [
     shortLabel: "Pro",
     description: "Google's flagship image generation model",
   },
+  {
+    id: "gemini-3.1-flash-lite-image",
+    label: "Nano Banana 2 Lite",
+    shortLabel: "Lite",
+    description: "Fastest image generation and editing",
+  },
 ];
 
 export type AspectRatio =
@@ -106,6 +114,10 @@ export const MODEL_ASPECT_RATIOS: Record<ModelId, AspectRatio[]> = {
     "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
     "9:16", "16:9", "5:4", "4:5", "21:9",
   ],
+  "gemini-3.1-flash-lite-image": [
+    "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
+    "9:16", "16:9", "5:4", "4:5", "21:9",
+  ],
 };
 
 export type Quality = "512" | "1K" | "2K" | "4K";
@@ -120,6 +132,8 @@ export const QUALITIES: { id: Quality; label: string }[] = [
 export const MODEL_QUALITIES: Record<ModelId, Quality[]> = {
   "gemini-3.1-flash-image": ["512", "1K", "2K", "4K"],
   "gemini-3-pro-image":     ["1K", "2K", "4K"],
+  // Lite caps output at 1 Megapixel — no 2K/4K tier.
+  "gemini-3.1-flash-lite-image": ["1K"],
 };
 
 export type BatchSize = 1 | 2 | 3 | 4;

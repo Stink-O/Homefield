@@ -20,6 +20,7 @@ import {
   BatchSize,
   RowHeightIndex,
   Workspace,
+  MODEL_QUALITIES,
 } from "@/lib/types";
 import { getLastWorkspaceId, saveLastWorkspaceId } from "@/lib/storage";
 import { pendingJobs, localJobIds } from "@/lib/gemini";
@@ -92,13 +93,21 @@ type AppAction =
 
 function reducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    case "SET_MODEL":
+    case "SET_MODEL": {
+      // Carry the current quality over only if the new model still supports it;
+      // otherwise fall back to 1K (or the model's first supported tier).
+      const allowedQualities = MODEL_QUALITIES[action.payload];
+      const quality = allowedQualities.includes(state.quality)
+        ? state.quality
+        : allowedQualities.includes("1K") ? "1K" : allowedQualities[0];
+      localStorage.setItem("quality", quality);
       return {
         ...state,
         selectedModel: action.payload,
         searchGrounding: action.payload === "gemini-3.1-flash-image" ? state.searchGrounding : false,
-        quality: action.payload !== "gemini-3.1-flash-image" && state.quality === "512" ? "1K" : state.quality,
+        quality,
       };
+    }
     case "SET_ASPECT_RATIO":
       localStorage.setItem("aspectRatio", action.payload);
       return { ...state, aspectRatio: action.payload };

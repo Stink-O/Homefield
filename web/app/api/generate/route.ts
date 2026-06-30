@@ -23,6 +23,7 @@ const ALLOWED_MODELS = new Set([
   "gemini-3-pro-image",
   "gemini-3.1-flash-image-preview",
   "gemini-3-pro-image-preview",
+  "gemini-3.1-flash-lite-image",
   "imagen-3.0-generate-001",
 ]);
 
@@ -479,6 +480,11 @@ export async function POST(req: NextRequest) {
   // 512 is only supported by the Flash model
   if (quality === "512" && model !== "gemini-3.1-flash-image") {
     return NextResponse.json({ error: "512 quality is only supported for the Flash model" }, { status: 400 });
+  }
+
+  // Lite caps output at 1 Megapixel — no 2K/4K tier
+  if ((quality === "2K" || quality === "4K") && model === "gemini-3.1-flash-lite-image") {
+    return NextResponse.json({ error: "2K/4K quality is not supported for the Lite model" }, { status: 400 });
   }
 
   // searchGrounding: must be a boolean if provided

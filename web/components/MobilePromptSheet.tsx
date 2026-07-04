@@ -8,7 +8,7 @@ import { useWebHaptics } from "web-haptics/react";
 import Tooltip from "./Tooltip";
 import ZoomModal from "./ZoomModal";
 import { useApp } from "@/contexts/AppContext";
-import { MODEL_IMAGE_LIMITS, type AttachedImage } from "@/lib/types";
+import { MODEL_IMAGE_LIMITS, MAX_PROMPT_LENGTH, PROMPT_COUNTER_THRESHOLD, type AttachedImage } from "@/lib/types";
 import { saveDraftImages, loadDraftImages } from "@/lib/storage";
 import ModelToggle from "./ModelToggle";
 import AspectRatioSelector from "./AspectRatioSelector";
@@ -339,6 +339,15 @@ export default function MobilePromptSheet({
                   rows={3}
                   className="w-full resize-none bg-transparent rounded-xl px-3 py-2.5 text-base text-text-primary placeholder-text-secondary/40 outline-none leading-relaxed transition-colors border border-[var(--chrome-border)] focus:border-[var(--chrome-border-strong)]"
                 />
+                {prompt.length >= PROMPT_COUNTER_THRESHOLD && (
+                  <div
+                    className={`mt-1 text-right text-[11px] tabular-nums ${
+                      prompt.length >= MAX_PROMPT_LENGTH ? "text-red-400" : "text-text-secondary/60"
+                    }`}
+                  >
+                    {prompt.length.toLocaleString()} / {MAX_PROMPT_LENGTH.toLocaleString()}
+                  </div>
+                )}
               </div>
 
               {/* Controls + Generate — outside overflow container so dropdowns aren't clipped */}

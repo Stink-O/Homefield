@@ -7,7 +7,7 @@ import { SortableImageStrip, type SortableImage } from "./SortableImageStrip";
 import ZoomModal from "./ZoomModal";
 import Tooltip from "./Tooltip";
 import { useApp } from "@/contexts/AppContext";
-import { MODEL_IMAGE_LIMITS, type AttachedImage } from "@/lib/types";
+import { MODEL_IMAGE_LIMITS, MAX_PROMPT_LENGTH, PROMPT_COUNTER_THRESHOLD, type AttachedImage } from "@/lib/types";
 import { saveDraftImages, loadDraftImages } from "@/lib/storage";
 import ModelToggle from "./ModelToggle";
 import AspectRatioSelector from "./AspectRatioSelector";
@@ -464,6 +464,16 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
                 className="flex-1 resize-none bg-transparent px-1 py-1 text-base text-text-primary placeholder-text-secondary/55 outline-none disabled:opacity-40 leading-relaxed max-h-[30vh] overflow-y-auto transition-[height] duration-150 ease-in-out"
               />
             </div>
+
+            {prompt.length >= PROMPT_COUNTER_THRESHOLD && (
+              <div
+                className={`mt-1 text-right text-[11px] tabular-nums ${
+                  prompt.length >= MAX_PROMPT_LENGTH ? "text-red-400" : "text-text-secondary/60"
+                }`}
+              >
+                {prompt.length.toLocaleString()} / {MAX_PROMPT_LENGTH.toLocaleString()}
+              </div>
+            )}
 
             <div className="mt-3 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">

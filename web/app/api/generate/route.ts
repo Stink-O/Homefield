@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { ServiceAccount, getAccessToken } from "@/lib/vertexAuth";
 import { resolveServiceAccount } from "@/lib/credentialStore";
-import { AttachedImage } from "@/lib/types";
+import { AttachedImage, MAX_PROMPT_LENGTH } from "@/lib/types";
 import { createJob, resolveJob, failJob, registerJobAbort, unregisterJobAbort } from "@/lib/jobs";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -42,9 +42,9 @@ const ALLOWED_ASPECT_RATIOS = new Set([
 
 const ALLOWED_QUALITIES = new Set(["512", "1K", "2K", "4K"]);
 
-// Maximum prompt length. Template prompts can be long JSON blocks, but anything
-// beyond this is abuse — it would be stored in SQLite and re-broadcast over SSE.
-const MAX_PROMPT_LENGTH = 20_000;
+// Maximum prompt length: MAX_PROMPT_LENGTH (imported from types.ts). Template
+// prompts can be long JSON blocks, but anything beyond this is abuse — it would
+// be stored in SQLite and re-broadcast over SSE.
 
 // Maximum base64 string length for a single reference image.
 // Vertex AI allows 7 MB per image; base64 encodes at ~4/3x, so ~9.5 MB. Use 10 MB as ceiling.

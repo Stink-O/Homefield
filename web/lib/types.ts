@@ -3,6 +3,13 @@ export interface AttachedImage {
   mimeType: string;
 }
 
+// Maximum prompt length accepted by the generate API. The API route imports
+// this so the UI counter and the server-side rejection can never drift apart.
+export const MAX_PROMPT_LENGTH = 20_000;
+
+// Prompt length at which the UI starts showing the character counter.
+export const PROMPT_COUNTER_THRESHOLD = 18_000;
+
 export interface Workspace {
   id: string;
   name: string;

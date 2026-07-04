@@ -16,9 +16,9 @@ import {
   type AspectRatio,
   type ModelId,
   type Quality,
-  ASPECT_RATIOS,
   normalizeModelId,
 } from "@/lib/types";
+import { closestAspectRatio } from "@/lib/aspect";
 import { randomUUID } from "@/lib/uuid";
 import { removePendingJob, addFailedJob, getFailedJobs, removeFailedJob } from "@/lib/pendingJobs";
 import SharedGallery from "@/components/SharedGallery";
@@ -41,19 +41,6 @@ interface PendingGeneration {
   searchGrounding?: boolean;
   failed?: boolean;
   errorMessage?: string;
-}
-
-function closestAspectRatio(width: number, height: number): AspectRatio {
-  const ratio = width / height;
-  const candidates = ASPECT_RATIOS.filter((ar) => ar !== "Auto") as AspectRatio[];
-  let best: AspectRatio = "1:1";
-  let bestDiff = Infinity;
-  for (const ar of candidates) {
-    const [w, h] = ar.split(":").map(Number);
-    const diff = Math.abs(ratio - w / h);
-    if (diff < bestDiff) { bestDiff = diff; best = ar; }
-  }
-  return best;
 }
 
 export default function SharedSpacePage() {

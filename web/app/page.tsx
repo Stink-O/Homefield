@@ -11,7 +11,8 @@ import CredentialModal from "@/components/CredentialModal";
 import MediaKeyBanner from "@/components/MediaKeyBanner";
 import TemplateDrawer from "@/components/TemplateDrawer";
 import BeamOverlay from "@/components/BeamOverlay";
-import { generateImage, resumeJob } from "@/lib/gemini";
+import ErrorToasts, { useErrorToasts } from "@/components/ErrorToasts";
+import { generateImage } from "@/lib/gemini";
 import type { RemotePendingItem } from "@/contexts/AppContext";
 import {
   type GeneratedImageMeta,
@@ -19,58 +20,16 @@ import {
   type AspectRatio,
   type ModelId,
   type Quality,
-  ASPECT_RATIOS,
   normalizeModelId,
 } from "@/lib/types";
 import { randomUUID } from "@/lib/uuid";
-import { getPendingJobs, removePendingJob, addFailedJob, removeFailedJob, getFailedJobs, trimImagesForStorage } from "@/lib/pendingJobs";
-import { deleteFromHistory } from "@/lib/storage";
+import { removePendingJob, addFailedJob, removeFailedJob, getFailedJobs, trimImagesForStorage } from "@/lib/pendingJobs";
+import { getRefImageDimensions, closestAspectRatio } from "@/lib/aspect";
+import { useOrphanRecovery, type PendingGeneration } from "@/lib/hooks/useOrphanRecovery";
+import { useBatchImageActions } from "@/lib/hooks/useBatchImageActions";
 
 interface AttachedImageWithThumb extends AttachedImage {
   thumbnail: string;
-}
-
-interface PendingGeneration {
-  id: string;
-  jobId?: string;
-  prompt: string;
-  aspectRatio: string;
-  selectedAspectRatio?: string;
-  count: number;
-  workspaceId: string;
-  startedAt: number;
-  model: ModelId;
-  quality: Quality;
-  images?: AttachedImage[];
-  searchGrounding?: boolean;
-  failed?: boolean;
-  errorMessage?: string;
-}
-
-function getRefImageDimensions(img: AttachedImage): Promise<{ width: number; height: number }> {
-  return new Promise((resolve) => {
-    const el = new window.Image();
-    el.onload = () => resolve({ width: el.naturalWidth, height: el.naturalHeight });
-    el.onerror = () => resolve({ width: 1024, height: 1024 });
-    el.src = `data:${img.mimeType};base64,${img.base64}`;
-  });
-}
-
-
-function closestAspectRatio(width: number, height: number): AspectRatio {
-  const ratio = width / height;
-  const candidates = ASPECT_RATIOS.filter((ar) => ar !== "Auto") as AspectRatio[];
-  let best: AspectRatio = "1:1";
-  let bestDiff = Infinity;
-  for (const ar of candidates) {
-    const [w, h] = ar.split(":").map(Number);
-    const diff = Math.abs(ratio - w / h);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = ar;
-    }
-  }
-  return best;
 }
 
 export default function Home() {
@@ -85,13 +44,12 @@ export default function Home() {
   const mobileRestoreRef = useRef<((prompt: string, images: AttachedImageWithThumb[]) => void) | null>(null);
   const mobileAddImageRef = useRef<((url: string, mimeType?: string) => void) | null>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const orphanRecoveryRanRef = useRef(false);
   const failedJobsRestoredRef = useRef(false);
   const pendingRef = useRef<PendingGeneration[]>([]);
   const remotePendingRef = useRef<RemotePendingItem[]>([]);
   const textareaRectRef = useRef<(() => DOMRect | null) | null>(null);
   const [beamProps, setBeamProps] = useState<{ from: { x: number; y: number }; to: { x: number; y: number }; toSize: { width: number; height: number } } | null>(null);
-  const [errorToasts, setErrorToasts] = useState<{ id: string; message: string }[]>([]);
+  const { errorToasts, pushErrorToast, dismissErrorToast } = useErrorToasts();
 
   useEffect(() => {
     pendingRef.current = pending;
@@ -135,157 +93,9 @@ export default function Home() {
     ]);
   }, [state.historyLoading]);
 
-  // On mount, resume polling for any jobs that survived a page refresh/app backgrounding.
-  // The ref guard prevents React StrictMode's double-invocation from adding duplicate cards.
-  useEffect(() => {
-    if (orphanRecoveryRanRef.current) return;
-    orphanRecoveryRanRef.current = true;
+  useOrphanRecovery(setPending, abortControllersRef, pushErrorToast);
 
-    const orphans = getPendingJobs();
-    if (!orphans.length) return;
-
-    for (const job of orphans) {
-      const pendingId = job.jobId;
-
-      (async () => {
-        // Pre-check status before showing any UI so we never flash a shimmer or
-        // error card for jobs that have already finished or been lost.
-        let stillPending = false;
-        try {
-          const res = await fetch(`/api/generate/${pendingId}`, { cache: "no-store" });
-          if (res.status === 404) {
-            // Server no longer knows this job (restarted, or job expired) — drop it silently.
-            removePendingJob(pendingId);
-            return;
-          }
-          if (res.ok) {
-            const jobData = await res.json();
-            if (jobData.status === "done") {
-              // Already complete — persist to history without showing a card.
-              removePendingJob(pendingId);
-              const meta: GeneratedImageMeta = {
-                id: jobData.imageId,
-                prompt: job.prompt,
-                model: job.model,
-                aspectRatio: job.aspectRatio,
-                mimeType: jobData.mimeType ?? "image/png",
-                width: jobData.width,
-                height: jobData.height,
-                timestamp: Date.now(),
-                quality: job.quality,
-                thumbnailUrl: jobData.thumbnailUrl,
-                workspaceId: job.workspaceId || "main",
-              };
-              dispatch({ type: "ADD_IMAGE", payload: meta });
-              return;
-            }
-            if (jobData.status === "error") {
-              removePendingJob(pendingId);
-              const errorMessage = (jobData.error as string | undefined) ?? "Generation failed";
-              addFailedJob({
-                id: pendingId,
-                prompt: job.prompt,
-                model: job.model,
-                aspectRatio: job.aspectRatio,
-                quality: job.quality,
-                workspaceId: job.workspaceId || "main",
-                searchGrounding: job.searchGrounding,
-                images: job.images,
-                errorMessage,
-                failedAt: Date.now(),
-              });
-              setPending((prev) => [
-                {
-                  id: pendingId,
-                  prompt: job.prompt,
-                  aspectRatio: job.aspectRatio,
-                  count: 1,
-                  workspaceId: job.workspaceId || "main",
-                  startedAt: job.startedAt,
-                  model: job.model,
-                  quality: job.quality,
-                  searchGrounding: job.searchGrounding,
-                  images: job.images,
-                  failed: true,
-                  errorMessage,
-                },
-                ...prev,
-              ]);
-              const toastId = randomUUID();
-              setErrorToasts((prev) => [...prev, { id: toastId, message: errorMessage }]);
-              setTimeout(() => setErrorToasts((prev) => prev.filter((t) => t.id !== toastId)), 6000);
-              return;
-            }
-            // status === "pending" — job is genuinely still running.
-            stillPending = true;
-          }
-        } catch {
-          // Network error on pre-check — assume still pending and show the shimmer.
-          stillPending = true;
-        }
-
-        if (!stillPending) return;
-
-        // Job is in-progress — show the shimmer card and wait for completion.
-        const controller = new AbortController();
-        abortControllersRef.current.set(pendingId, controller);
-        setPending((prev) => [
-          {
-            id: pendingId,
-            prompt: job.prompt,
-            aspectRatio: job.aspectRatio,
-            count: 1,
-            workspaceId: job.workspaceId || "main",
-            startedAt: job.startedAt,
-            model: job.model,
-            quality: job.quality,
-            searchGrounding: job.searchGrounding,
-          },
-          ...prev,
-        ]);
-
-        try {
-          const data = await resumeJob(pendingId, controller.signal);
-          removePendingJob(pendingId);
-          const meta: GeneratedImageMeta = {
-            id: data.imageId,
-            prompt: job.prompt,
-            model: job.model,
-            aspectRatio: job.aspectRatio,
-            mimeType: data.mimeType,
-            width: data.width,
-            height: data.height,
-            timestamp: Date.now(),
-            quality: job.quality,
-            thumbnailUrl: data.thumbnailUrl,
-            workspaceId: job.workspaceId || "main",
-            referenceImageDataUrls: data.referenceImageDataUrls,
-          };
-          dispatch({ type: "ADD_IMAGE", payload: meta });
-          setPending((prev) => prev.filter((p) => p.id !== pendingId));
-          abortControllersRef.current.delete(pendingId);
-        } catch (err) {
-          if (err instanceof Error && err.name === "AbortError") return;
-          const errorMessage = err instanceof Error ? err.message : "Generation failed";
-          addFailedJob({
-            id: pendingId,
-            prompt: job.prompt,
-            model: job.model,
-            aspectRatio: job.aspectRatio,
-            quality: job.quality,
-            workspaceId: job.workspaceId || "main",
-            searchGrounding: job.searchGrounding,
-            images: job.images,
-            errorMessage,
-            failedAt: Date.now(),
-          });
-          setPending((prev) => prev.map((p) => p.id === pendingId ? { ...p, images: job.images, failed: true, errorMessage } : p));
-          abortControllersRef.current.delete(pendingId);
-        }
-      })();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { handleBatchDelete, handleBatchCopyTo, handleBatchMoveTo, handleBatchDownload } = useBatchImageActions();
 
   const handlePromptSelect = useCallback((p: string) => {
     promptSetterRef.current?.(p);
@@ -315,16 +125,13 @@ export default function Home() {
       }
       const skipped = totalRefCount - refImages.length;
       if (skipped > 0) {
-        const toastId = randomUUID();
-        const message = `${skipped} of ${totalRefCount} reference image${totalRefCount !== 1 ? "s" : ""} could not be loaded and ${skipped !== 1 ? "were" : "was"} skipped.`;
-        setErrorToasts((prev) => [...prev, { id: toastId, message }]);
-        setTimeout(() => setErrorToasts((prev) => prev.filter((t) => t.id !== toastId)), 6000);
+        pushErrorToast(`${skipped} of ${totalRefCount} reference image${totalRefCount !== 1 ? "s" : ""} could not be loaded and ${skipped !== 1 ? "were" : "was"} skipped.`);
       }
     }
 
     restoreRef.current?.(image.prompt, refImages);
     if (window.innerWidth < 640) mobileRestoreRef.current?.(image.prompt, refImages);
-  }, [dispatch]);
+  }, [dispatch, pushErrorToast]);
 
   const handleReference = useCallback(async (image: GeneratedImageMeta) => {
     const res = await fetch(`/api/images/${image.id}/download`);
@@ -334,65 +141,6 @@ export default function Home() {
     addImageRef.current?.(blobUrl, image.mimeType);
     if (window.innerWidth < 640) mobileAddImageRef.current?.(blobUrl, image.mimeType);
   }, []);
-
-  const handleBatchDelete = useCallback((ids: string[]) => {
-    for (const id of ids) {
-      fetch(`/api/images/${id}`, { method: "DELETE" })
-        .then((res) => { if (!res.ok) console.error(`[HomeField] Failed to delete image ${id}: ${res.status}`); })
-        .catch(() => console.error(`[HomeField] Network error deleting image ${id}`));
-      dispatch({ type: "DELETE_IMAGE", payload: id });
-      deleteFromHistory(id).catch(() => {});
-    }
-  }, [dispatch]);
-
-  const handleBatchCopyTo = useCallback(async (ids: string[], targetWorkspaceId: string) => {
-    await Promise.all(
-      ids.map((id) =>
-        fetch(`/api/images/${id}/copy`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetWorkspaceId }),
-        })
-      )
-    );
-  }, []);
-
-  const handleBatchMoveTo = useCallback(async (ids: string[], targetWorkspaceId: string) => {
-    await Promise.all(ids.map((id) =>
-      fetch(`/api/images/${id}/workspace`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId: targetWorkspaceId }),
-      })
-    ));
-    dispatch({ type: "REMOVE_MANY_FROM_VIEW", payload: ids });
-  }, [dispatch]);
-
-  const handleBatchDownload = useCallback(async (ids: string[]) => {
-    const JSZip = (await import("jszip")).default;
-    const zip = new JSZip();
-
-    for (const id of ids) {
-      const image = state.history.find((img) => img.id === id);
-      if (!image) continue;
-      const res = await fetch(`/api/images/${id}/download`);
-      if (!res.ok) continue;
-      const buffer = await res.arrayBuffer();
-      const slug = image.prompt.slice(0, 40).replace(/[^a-zA-Z0-9]/g, "_");
-      const ext = image.mimeType === "image/jpeg" ? "jpg" : "png";
-      zip.file(`${slug}_${id.slice(0, 6)}.${ext}`, buffer);
-    }
-
-    const blob = await zip.generateAsync({ type: "blob" });
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = `homefield_${ids.length}_images.zip`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-  }, [state.history]);
 
   // Generates exactly one image. Call multiple times for batch.
   const runGeneration = useCallback(async (params: {
@@ -458,16 +206,14 @@ export default function Home() {
       setPending((prev) =>
         prev.map((p) => p.id === pendingId ? { ...p, failed: true, errorMessage } : p)
       );
-      const toastId = randomUUID();
-      setErrorToasts((prev) => [...prev, { id: toastId, message: errorMessage }]);
-      setTimeout(() => setErrorToasts((prev) => prev.filter((t) => t.id !== toastId)), 6000);
+      pushErrorToast(errorMessage);
     } finally {
       abortControllersRef.current.delete(pendingId);
       if (!shouldRetain) {
         setPending((prev) => prev.filter((p) => p.id !== pendingId));
       }
     }
-  }, [dispatch]);
+  }, [dispatch, pushErrorToast]);
 
   const MAX_CONCURRENT = 8;
 
@@ -662,23 +408,7 @@ export default function Home() {
         />
       )}
 
-      <div className="fixed top-4 right-4 z-[300] flex flex-col gap-2 pointer-events-none">
-        {errorToasts.map((toast) => (
-          <div
-            key={toast.id}
-            className="pointer-events-auto flex items-center gap-3 rounded-xl border border-red-500/30 bg-surface/95 backdrop-blur px-4 py-3 shadow-lg max-w-xs"
-          >
-            <div className="h-2 w-2 rounded-full bg-red-400 flex-shrink-0" />
-            <span className="text-xs text-text-secondary leading-snug">{toast.message}</span>
-            <button
-              onClick={() => setErrorToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-              className="ml-auto text-text-secondary/50 hover:text-text-primary transition-colors text-xs pl-2"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
+      <ErrorToasts toasts={errorToasts} onDismiss={dismissErrorToast} />
     </>
   );
 }

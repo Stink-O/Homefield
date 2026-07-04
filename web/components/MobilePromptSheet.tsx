@@ -183,7 +183,7 @@ export default function MobilePromptSheet({
         : undefined
     );
     setOpen(false);
-  }, [canGenerate, prompt, images, onGenerate]);
+  }, [canGenerate, prompt, images, onGenerate, trigger]);
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;

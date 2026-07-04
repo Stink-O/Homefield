@@ -306,7 +306,7 @@ export default function SharedSpacePage() {
         setPending((prev) => prev.filter((p) => p.id !== pendingId));
       }
     }
-  }, []);
+  }, [session?.user?.id, session?.user?.name]);
 
   const MAX_CONCURRENT = 8;
 

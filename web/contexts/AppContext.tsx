@@ -382,9 +382,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session?.user?.id) return;
     const es = new EventSource("/api/images/stream");
-    // TEMP DEBUG
-    es.onopen = () => console.log("[HF SSE:private] connected, userId=", session?.user?.id?.slice(0, 8));
-    es.onerror = (err) => console.error("[HF SSE:private] error", err);
     es.onmessage = (e) => {
       try {
         const event = JSON.parse(e.data);
@@ -443,8 +440,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         // Existing image completion event.
-        // TEMP DEBUG
-        console.log("[HF SSE:private] event received id=", event.id?.slice(0, 8), "workspace=", event.workspaceId, "currentWorkspace=", state.currentWorkspaceId);
         const meta: GeneratedImageMeta = {
           id: event.id,
           prompt: event.prompt,

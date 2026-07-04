@@ -54,6 +54,29 @@ export default function MobilePromptSheet({
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, []);
 
+  // Keep the sheet above the software keyboard. iOS overlays the keyboard on
+  // top of the layout viewport instead of resizing it, so a bottom-fixed sheet
+  // stays hidden behind the keyboard until something forces a reflow (#7).
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  useEffect(() => {
+    if (!open) {
+      setKeyboardOffset(0);
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      setKeyboardOffset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [open]);
+
   // Focus textarea when sheet opens (unless suppressed for programmatic opens)
   useEffect(() => {
     if (open) {
@@ -281,7 +304,10 @@ export default function MobilePromptSheet({
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="fixed inset-x-0 bottom-0 z-50 flex flex-col glass-command rounded-t-3xl"
-              style={{ maxHeight: "90vh" }}
+              style={{
+                maxHeight: keyboardOffset > 0 ? `calc(100vh - ${keyboardOffset}px)` : "90vh",
+                bottom: keyboardOffset,
+              }}
             >
               {/* Drag handle */}
               <div className="pt-3 pb-1 flex justify-center">

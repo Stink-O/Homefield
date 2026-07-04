@@ -204,6 +204,33 @@ Open `http://localhost:3000`. For HTTPS in dev, drop `cert.pem` and `key.pem` in
 2. Create a service account with the **Vertex AI User** role (`roles/aiplatform.user`) and download the JSON key
 3. Remove all newlines from the file so it's one line, paste it as `GOOGLE_APPLICATION_CREDENTIALS_JSON`
 
+### Using Replicate instead of Vertex
+
+If you'd rather skip the Google Cloud setup for image generation, HomeField can route image models through [Replicate](https://replicate.com):
+
+1. Create a Replicate account and generate a token under [Account settings, API tokens](https://replicate.com/account/api-tokens)
+2. Set these in your env file:
+
+```env
+GENERATION_PROVIDER=replicate
+REPLICATE_API_TOKEN=r8_...
+```
+
+The image models map to Replicate's hosted versions of the same Google models (see `web/lib/replicate.ts`):
+
+| HomeField model | Replicate model |
+|---|---|
+| Nano Banana 2 (`gemini-3.1-flash-image`) | [`google/nano-banana-2`](https://replicate.com/google/nano-banana-2) |
+| Nano Banana Pro (`gemini-3-pro-image`) | [`google/nano-banana-pro`](https://replicate.com/google/nano-banana-pro) |
+
+Trade-offs to be aware of:
+
+- **Simpler setup:** just a token, no Google Cloud project, service account, or JSON key
+- **Same underlying models**, billed at Replicate's per-image rates instead of Google's
+- **Automatic fallback:** if a Replicate call fails and `GOOGLE_APPLICATION_CREDENTIALS_JSON` is also configured, the request retries on Vertex, so you can run both for resilience
+- **Rate limits:** Replicate throttles bursts on new accounts; HomeField retries 429s automatically, but large batches may queue
+- **Music generation still needs Google credentials.** Lyria is only available through the Google API, so a Replicate-only setup covers images but not music
+
 ---
 
 ## First Login

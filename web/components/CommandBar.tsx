@@ -187,11 +187,13 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
         // The height transition (150ms) is usually still running when the beam
         // measures its landing target, so the live rect is a mid-animation
         // snapshot. Reconstruct the post-transition rect instead: the bottom
-        // edge is anchored (the command bar grows upward) and the final height
-        // follows the same formula as triggerResize, clamped by CSS max-height.
+        // edge is anchored (the command bar grows upward) and triggerResize has
+        // already written the final pixel height to the inline style, so read
+        // that (works for both grow and shrink), clamped by CSS max-height.
         const maxH = parseFloat(getComputedStyle(el).maxHeight);
         const cap = Number.isFinite(maxH) ? Math.min(160, maxH) : 160;
-        const finalHeight = Math.min(el.scrollHeight, cap);
+        const inlineH = parseFloat(el.style.height);
+        const finalHeight = Math.min(Number.isFinite(inlineH) ? inlineH : el.scrollHeight, cap);
         return new DOMRect(rect.x, rect.bottom - finalHeight, rect.width, finalHeight);
       };
     }

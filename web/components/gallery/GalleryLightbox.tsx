@@ -1,0 +1,419 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Download, Wand2, SlidersHorizontal, Info, ChevronDown, Copy, Check, Trash2, ImagePlus } from "lucide-react";
+import ZoomModal from "../ZoomModal";
+import { MODELS, normalizeModelId, type GeneratedImageMeta } from "@/lib/types";
+import { copyText } from "@/lib/uuid";
+
+const PROMPT_TRUNCATE_LENGTH = 120;
+
+// Shared lightbox rendered at the Gallery level
+export default function GalleryLightbox({
+  image,
+  onClose,
+  onPrev,
+  onNext,
+  onRestore,
+  onReference,
+  onPromptSelect,
+  onDelete,
+}: {
+  image: GeneratedImageMeta;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onRestore?: (image: GeneratedImageMeta) => void;
+  onReference?: (image: GeneratedImageMeta) => void;
+  onPromptSelect?: (prompt: string) => void;
+  onDelete?: (id: string) => void;
+}) {
+  const [copiedPanel, setCopiedPanel] = useState(false);
+  const [seeAll, setSeeAll] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [refPreviewIndex, setRefPreviewIndex] = useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  // Reset all local state when navigating to a different image.
+  // Intentional reset-on-prop-change; a render-time rewrite would change timing.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeeAll(false);
+    setPromptExpanded(false);
+    setCopiedPanel(false);
+    setDeleteConfirm(false);
+    setRefPreviewIndex(null);
+  }, [image.id]);
+
+  // Always use the download endpoint for full-resolution lightbox display.
+  // Avoids fragile URL string manipulation and guarantees the correct file path
+  // from the DB regardless of caching state or how the image was added to state.
+  const imageSrc = `/api/images/${image.id}/download`;
+  const modelLabel = MODELS.find((m) => m.id === normalizeModelId(image.model))?.label ?? image.model;
+  const formattedDate = new Date(image.timestamp).toLocaleString(undefined, {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+  const isLongPrompt = image.prompt.length > PROMPT_TRUNCATE_LENGTH;
+  const displayedPrompt = isLongPrompt && !promptExpanded
+    ? image.prompt.slice(0, PROMPT_TRUNCATE_LENGTH)
+    : image.prompt;
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const res = await fetch(`/api/images/${image.id}/download`);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const slug = image.prompt.slice(0, 40).replace(/[^a-zA-Z0-9]/g, "_");
+    const ext = image.mimeType === "image/jpeg" ? "jpg" : "png";
+    const fileName = `homefield_${slug}.${ext}`;
+
+    // Web Share API — mobile only (touch device)
+    const isMobile = navigator.maxTouchPoints > 0 && window.innerWidth < 768;
+    if (isMobile && typeof navigator.canShare === "function") {
+      try {
+        const file = new File([blob], fileName, { type: image.mimeType });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+          return;
+        }
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        // fall through
+      }
+    }
+
+    // Desktop fallback
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+  };
+
+  const handleCopyPanel = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await copyText(image.prompt);
+    setCopiedPanel(true);
+    setTimeout(() => setCopiedPanel(false), 1500);
+    onPromptSelect?.(image.prompt);
+  };
+
+  const handleCopyMobile = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await copyText(image.prompt);
+    setCopiedPanel(true);
+    setTimeout(() => setCopiedPanel(false), 1500);
+    onPromptSelect?.(image.prompt);
+    onClose();
+  };
+
+  const handleRestorePanel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRestore?.(image);
+    onClose();
+  };
+
+  const handleReferencePanel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onReference?.(image);
+    onClose();
+  };
+
+  const handleDeleteMobile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deleteConfirm) {
+      setDeleteConfirm(true);
+      return;
+    }
+    onDelete?.(image.id);
+    onClose();
+  };
+
+  const infoPanel = (
+    <>
+      {/* ── Mobile action bar (hidden on sm+) ── */}
+      <div
+        className="sm:hidden bg-surface px-6 py-5 rounded-t-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Row 1: primary actions */}
+        <div className="flex justify-around mb-5">
+          {onRestore && (
+            <button onClick={handleRestorePanel} className="flex flex-col items-center gap-2">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent">
+                <Wand2 size={22} className="text-black" />
+              </div>
+              <span className="text-xs text-text-secondary/80 font-medium">Restore</span>
+            </button>
+          )}
+          {onReference && (
+            <button onClick={handleReferencePanel} className="flex flex-col items-center gap-2">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--border)]">
+                <ImagePlus size={22} className="text-text-primary" />
+              </div>
+              <span className="text-xs text-text-secondary/80 font-medium">Reference</span>
+            </button>
+          )}
+          <button onClick={handleDownload} className="flex flex-col items-center gap-2">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--border)]">
+              <Download size={22} className="text-text-primary" />
+            </div>
+            <span className="text-xs text-text-secondary/80 font-medium">Download</span>
+          </button>
+        </div>
+
+        {/* Row 2: secondary actions */}
+        <div className="flex justify-around">
+          <button onClick={handleCopyMobile} className="flex flex-col items-center gap-2">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--border)]">
+              {copiedPanel ? <Check size={22} className="text-accent" /> : <Copy size={22} className="text-text-primary" />}
+            </div>
+            <span className="text-xs text-text-secondary/80 font-medium">Copy Prompt</span>
+          </button>
+          <button onClick={handleDeleteMobile} className="flex flex-col items-center gap-2">
+            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-colors ${deleteConfirm ? "bg-red-500" : "bg-[var(--border)]"}`}>
+              <Trash2 size={22} className={deleteConfirm ? "text-white" : "text-red-400"} />
+            </div>
+            <span className="text-xs text-text-secondary/80 font-medium">{deleteConfirm ? "Confirm?" : "Delete"}</span>
+          </button>
+          <button onClick={() => setSeeAll((v) => !v)} className="flex flex-col items-center gap-2">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--border)]">
+              <Info size={22} className={seeAll ? "text-accent" : "text-text-primary"} />
+            </div>
+            <span className="text-xs text-text-secondary/80 font-medium">Details</span>
+          </button>
+        </div>
+
+        {/* Collapsible details */}
+        <div className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${seeAll ? "max-h-[2000px] mt-4" : "max-h-0"}`}>
+          <div className="pt-4 border-t border-[var(--border)]">
+            {/* Prompt */}
+            <div className="bg-[var(--border)] rounded-xl p-3 mb-4">
+              <p className="text-xs text-text-primary leading-relaxed">
+                {displayedPrompt}
+                {isLongPrompt && !promptExpanded && (
+                  <>
+                    {"... "}
+                    <button onClick={() => setPromptExpanded(true)} className="text-text-secondary/50 hover:text-text-secondary transition-colors underline underline-offset-2">
+                      Show more
+                    </button>
+                  </>
+                )}
+                {isLongPrompt && promptExpanded && (
+                  <>
+                    {" "}
+                    <button onClick={() => setPromptExpanded(false)} className="text-text-secondary/50 hover:text-text-secondary transition-colors underline underline-offset-2">
+                      Show less
+                    </button>
+                  </>
+                )}
+              </p>
+            </div>
+            {/* Info rows */}
+            <div>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                <span className="text-xs text-text-secondary">Model</span>
+                <span className="text-xs text-text-primary font-semibold text-right">{modelLabel}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                <span className="text-xs text-text-secondary">Quality</span>
+                <span className="text-xs text-text-primary font-semibold text-right">{image.quality ?? "—"}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                <span className="text-xs text-text-secondary">Size</span>
+                <span className="text-xs text-text-primary font-semibold text-right">{image.width}×{image.height}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                <span className="text-xs text-text-secondary">Aspect Ratio</span>
+                <span className="text-xs text-text-primary font-semibold text-right">{image.aspectRatio}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                <span className="text-xs text-text-secondary">Created</span>
+                <span className="text-xs text-text-primary font-semibold text-right">{formattedDate}</span>
+              </div>
+              {image.referenceImageDataUrls && image.referenceImageDataUrls.length > 0 && (
+                <div className="flex justify-between items-start py-2">
+                  <span className="text-xs text-text-secondary mt-1">References ({image.referenceImageDataUrls.length})</span>
+                  <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+                    {image.referenceImageDataUrls.map((url, i) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt={`Reference ${i + 1}`}
+                        className="h-8 w-8 rounded object-cover cursor-pointer hover:ring-2 hover:ring-[var(--chrome-border-strong)] transition-all"
+                        onClick={() => setRefPreviewIndex(i)}
+                        title={`View reference ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Desktop info panel (hidden on mobile) ── */}
+      <div
+        className="hidden sm:flex w-72 h-full flex-shrink-0 flex-col overflow-y-auto bg-surface border-l border-[var(--border)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 space-y-5 flex flex-col flex-1">
+
+          <div>
+            <div className="flex items-center">
+              <SlidersHorizontal size={11} className="text-text-secondary/50" />
+              <span className="text-[10px] uppercase tracking-wide text-text-secondary/60 font-medium flex-1 ml-1.5">PROMPT</span>
+              <button
+                onClick={handleCopyPanel}
+                className="rounded-md border border-[var(--border)] bg-[var(--border)] px-2 py-0.5 text-[10px] text-text-secondary hover:text-text-primary transition-colors flex items-center gap-1"
+              >
+                {copiedPanel ? <Check size={10} /> : <Copy size={10} />}
+                {copiedPanel ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="bg-[var(--border)] rounded-xl p-3 mt-2">
+              <p className="text-xs text-text-primary leading-relaxed">
+                {displayedPrompt}
+                {isLongPrompt && !promptExpanded && (
+                  <>
+                    {"... "}
+                    <button
+                      onClick={() => setPromptExpanded(true)}
+                      className="text-text-secondary/50 hover:text-text-secondary transition-colors underline underline-offset-2"
+                    >
+                      Show more
+                    </button>
+                  </>
+                )}
+                {isLongPrompt && promptExpanded && (
+                  <>
+                    {" "}
+                    <button
+                      onClick={() => setPromptExpanded(false)}
+                      className="text-text-secondary/50 hover:text-text-secondary transition-colors underline underline-offset-2"
+                    >
+                      Show less
+                    </button>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--border)]" />
+
+          <div>
+            <div className="flex items-center">
+              <Info size={11} className="text-text-secondary/50" />
+              <span className="text-[10px] uppercase tracking-wide text-text-secondary/60 font-medium ml-1.5">INFORMATION</span>
+            </div>
+            <div className="mt-2">
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                <span className="text-xs text-text-secondary">Model</span>
+                <span className="text-xs text-text-primary font-semibold text-right">{modelLabel}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                <span className="text-xs text-text-secondary">Quality</span>
+                <span className="text-xs text-text-primary font-semibold text-right">{image.quality ?? "—"}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                <span className="text-xs text-text-secondary">Size</span>
+                <span className="text-xs text-text-primary font-semibold text-right">{image.width}×{image.height}</span>
+              </div>
+
+              {seeAll && (
+                <>
+                  <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                    <span className="text-xs text-text-secondary">Aspect Ratio</span>
+                    <span className="text-xs text-text-primary font-semibold text-right">{image.aspectRatio}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                    <span className="text-xs text-text-secondary">Created</span>
+                    <span className="text-xs text-text-primary font-semibold text-right">{formattedDate}</span>
+                  </div>
+                  {image.referenceImageDataUrls && image.referenceImageDataUrls.length > 0 && (
+                    <div className="flex justify-between items-start py-2 border-b border-[var(--border)]">
+                      <span className="text-xs text-text-secondary mt-1">References ({image.referenceImageDataUrls.length})</span>
+                      <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+                        {image.referenceImageDataUrls.map((url, i) => (
+                          <img
+                            key={i}
+                            src={url}
+                            alt={`Reference ${i + 1}`}
+                            className="h-8 w-8 rounded object-cover cursor-pointer hover:ring-2 hover:ring-[var(--chrome-border-strong)] transition-all"
+                            onClick={() => setRefPreviewIndex(i)}
+                            title={`View reference ${i + 1}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div
+                className="flex justify-between items-center py-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setSeeAll((prev) => !prev)}
+              >
+                <span className="text-xs text-text-secondary">See all</span>
+                <ChevronDown
+                  size={13}
+                  className="text-text-secondary transition-transform"
+                  style={{ transform: seeAll ? "rotate(180deg)" : "rotate(0deg)" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto pt-4 border-t border-[var(--border)] flex flex-col gap-2">
+            <button
+              onClick={handleDownload}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--border)] py-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+            >
+              <Download size={13} />
+              Download
+            </button>
+            {onRestore && (
+              <button
+                onClick={handleRestorePanel}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-accent/15 border border-accent/25 py-2 text-xs font-medium text-accent hover:bg-accent/25 transition-colors"
+              >
+                <Wand2 size={13} />
+                Restore to prompt
+              </button>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      {refPreviewIndex !== null && image.referenceImageDataUrls?.[refPreviewIndex] && (
+        <ZoomModal
+          src={image.referenceImageDataUrls[refPreviewIndex]}
+          alt={`Reference image ${refPreviewIndex + 1}`}
+          onClose={() => setRefPreviewIndex(null)}
+          caption={`Reference ${refPreviewIndex + 1} of ${image.referenceImageDataUrls.length}`}
+          onPrev={image.referenceImageDataUrls.length > 1 ? () => setRefPreviewIndex((i) => i !== null ? (i - 1 + image.referenceImageDataUrls!.length) % image.referenceImageDataUrls!.length : null) : undefined}
+          onNext={image.referenceImageDataUrls.length > 1 ? () => setRefPreviewIndex((i) => i !== null ? (i + 1) % image.referenceImageDataUrls!.length : null) : undefined}
+        />
+      )}
+    </>
+  );
+
+  return (
+    <ZoomModal
+      src={imageSrc}
+      alt={image.prompt ?? "Generated image"}
+      onClose={onClose}
+      onPrev={onPrev}
+      onNext={onNext}
+      zIndex={200}
+      sidebar={infoPanel}
+      imageId={image.id}
+    />
+  );
+}

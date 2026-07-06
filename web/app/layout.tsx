@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit, JetBrains_Mono } from "next/font/google";
 import { AppProvider } from "@/contexts/AppContext";
 import { SessionProvider } from "next-auth/react";
@@ -15,6 +15,16 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",
 });
+
+// resizes-content: the browser shrinks the layout viewport for the software
+// keyboard, so bottom-fixed UI lands above the keyboard and the browser's own
+// bottom bars natively. Browsers without support ignore it and fall back to
+// the visualViewport tracking in MobilePromptSheet (#7).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
+};
 
 export const metadata: Metadata = {
   title: "HomeField",

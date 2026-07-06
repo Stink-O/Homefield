@@ -10,6 +10,7 @@ import ZoomModal from "./ZoomModal";
 import { useApp } from "@/contexts/AppContext";
 import { MODEL_IMAGE_LIMITS, MAX_PROMPT_LENGTH, PROMPT_COUNTER_THRESHOLD, type AttachedImage } from "@/lib/types";
 import { saveDraftImages, loadDraftImages } from "@/lib/storage";
+import { useSheetKeyboard, SheetKeyboardDebug } from "@/lib/hooks/useSheetKeyboard";
 import ModelToggle from "./ModelToggle";
 import AspectRatioSelector from "./AspectRatioSelector";
 import QualitySelector from "./QualitySelector";
@@ -42,50 +43,46 @@ export default function MobilePromptSheet({
   const [images, setImages] = useState<AttachedImageWithThumb[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const skipFocusRef = useRef(false);
   const maxImages = MODEL_IMAGE_LIMITS[state.selectedModel] ?? 14;
   const canGenerate = prompt.trim().length > 0;
   const atLimit = images.length >= maxImages;
 
+  // All iOS software-keyboard workarounds (positioning, repaint, scroll
+  // locking, Safari URL-pill detection) live in this hook — see its header
+  // comment before touching any keyboard-related behavior here (#7).
+  const { kb, settleTick, kbOpenRef, safariPill } = useSheetKeyboard(open);
+
+  // Auto-size the textarea. Capped lower while the keyboard is up so a long
+  // prompt can't grow the sheet past the visible area and push Generate under
+  // Safari's URL pill; the prompt scrolls inside the textarea instead (#7).
   const triggerResize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
-  }, []);
+    el.style.height = Math.min(el.scrollHeight, kbOpenRef.current ? 96 : 160) + "px";
+  }, [kbOpenRef]);
 
-  // Keep the sheet above the software keyboard. iOS overlays the keyboard on
-  // top of the layout viewport instead of resizing it, so a bottom-fixed sheet
-  // stays hidden behind the keyboard until something forces a reflow (#7).
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  // Re-apply the textarea height cap when the keyboard opens or closes
   useEffect(() => {
-    if (!open) {
-      setKeyboardOffset(0);
-      return;
-    }
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const update = () => {
-      setKeyboardOffset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
-    };
-    update();
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-    };
-  }, [open]);
+    triggerResize();
+  }, [kb.open, triggerResize]);
 
-  // Focus textarea when sheet opens (unless suppressed for programmatic opens)
+  // Focus textarea when sheet opens (unless suppressed for programmatic opens).
+  // Wait for the entrance spring to settle first: opening the keyboard while
+  // the sheet is still transforming triggers an iOS compositing bug where the
+  // scroll area's contents stop painting (#7).
   useEffect(() => {
     if (open) {
       const shouldFocus = !skipFocusRef.current;
       skipFocusRef.current = false;
-      setTimeout(() => {
-        if (shouldFocus) textareaRef.current?.focus();
+      const id = window.setTimeout(() => {
+        if (shouldFocus) textareaRef.current?.focus({ preventScroll: true });
         triggerResize();
-      }, 50);
+      }, 350);
+      return () => window.clearTimeout(id);
     }
   }, [open, triggerResize]);
 
@@ -299,23 +296,34 @@ export default function MobilePromptSheet({
 
             {/* Sheet panel */}
             <motion.div
+              ref={sheetRef}
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="fixed inset-x-0 bottom-0 z-50 flex flex-col glass-command rounded-t-3xl"
               style={{
-                maxHeight: keyboardOffset > 0 ? `calc(100vh - ${keyboardOffset}px)` : "90vh",
-                bottom: keyboardOffset,
+                maxHeight: kb.open && kb.viewportH > 0 ? `${kb.viewportH}px` : "90vh",
+                bottom: kb.offset,
               }}
             >
-              {/* Drag handle */}
-              <div className="pt-3 pb-1 flex justify-center">
-                <div className="w-10 h-1 rounded-full" style={{ background: "var(--chrome-handle)" }} />
-              </div>
-
-              {/* Header row with close button */}
-              <div className="flex items-center justify-end px-4 pt-1 pb-2">
+              <SheetKeyboardDebug sheetRef={sheetRef} scrollRef={scrollAreaRef} kb={kb} />
+              {/* Fills the keyboard-lift area under the sheet so the page
+                  background can't show through iOS's subpixel seam between
+                  the sheet and the keyboard. Starts 1px up to also cover the
+                  sheet's own bottom border. -z-10 keeps it under any content
+                  that overflows the sheet. */}
+              {kb.offset > 0 && (
+                <div
+                  aria-hidden
+                  className="absolute inset-x-0 pointer-events-none -z-10"
+                  style={{ top: "calc(100% - 1px)", height: kb.offset + 1, background: "var(--command-bg)" }}
+                />
+              )}
+              {/* Drag handle + close share one row so the sheet stays short
+                  when the keyboard shrinks it (#7) */}
+              <div className="relative flex items-center justify-end px-4 pt-2 pb-1">
+                <div className="absolute left-1/2 top-3 -translate-x-1/2 w-10 h-1 rounded-full" style={{ background: "var(--chrome-handle)" }} />
                 <button
                   onClick={() => setOpen(false)}
                   className="flex h-7 w-7 items-center justify-center rounded-full text-text-secondary/60 hover:text-text-primary transition-colors bg-[var(--chrome-surface)] hover:bg-[var(--chrome-surface-hover)]"
@@ -324,13 +332,21 @@ export default function MobilePromptSheet({
                 </button>
               </div>
 
-              {/* Scrollable content */}
-              <div className="overflow-y-auto flex-1 px-4">
+              {/* Scrollable content — images only. The textarea is pinned below
+                  so the software keyboard can never leave it scrolled out of
+                  view when it shrinks the sheet (#7). min-h keeps one full
+                  strip row / the compact upload box usable even when the
+                  keyboard squeezes the sheet. Remounting on keyboard
+                  open/close and again once the viewport settles (key) forces
+                  iOS to repaint it — it can otherwise leave the container
+                  blank after the keyboard resize. No transform here: it would
+                  break dnd-kit's fixed-position drag preview. */}
+              <div key={`${kb.open ? "kb" : "free"}-${settleTick}`} ref={scrollAreaRef} data-sheet-scroll className="overflow-y-auto overscroll-contain flex-1 min-h-[104px] px-4">
                 {/* Reference image box */}
                 {images.length === 0 ? (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full mb-3 rounded-2xl flex flex-col items-center justify-center gap-2.5 py-5 transition-colors border border-[var(--chrome-border)] bg-[var(--chrome-surface)] active:bg-[var(--chrome-surface-hover)]"
+                    className="w-full mb-3 rounded-2xl flex flex-col items-center justify-center gap-2.5 py-4 transition-colors border border-[var(--chrome-border)] bg-[var(--chrome-surface)] active:bg-[var(--chrome-surface-hover)]"
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--chrome-surface-hover)]">
                       <ImageIcon size={20} className="text-text-secondary/50" />
@@ -353,8 +369,10 @@ export default function MobilePromptSheet({
                     />
                   </div>
                 )}
+              </div>
 
-                {/* Textarea with clear border */}
+              {/* Textarea pinned outside the scroll area */}
+              <div className="px-4 shrink-0" data-sheet-scroll>
                 <textarea
                   ref={textareaRef}
                   value={prompt}
@@ -363,7 +381,7 @@ export default function MobilePromptSheet({
                   onPaste={handlePaste}
                   placeholder="Describe the scene you imagine..."
                   rows={3}
-                  className="w-full resize-none bg-transparent rounded-xl px-3 py-2.5 text-base text-text-primary placeholder-text-secondary/40 outline-none leading-relaxed transition-colors border border-[var(--chrome-border)] focus:border-[var(--chrome-border-strong)]"
+                  className="w-full resize-none overscroll-contain bg-transparent rounded-xl px-3 py-2.5 text-base text-text-primary placeholder-text-secondary/40 outline-none leading-relaxed transition-colors border border-[var(--chrome-border)] focus:border-[var(--chrome-border-strong)]"
                 />
                 {prompt.length >= PROMPT_COUNTER_THRESHOLD && (
                   <div
@@ -376,8 +394,21 @@ export default function MobilePromptSheet({
                 )}
               </div>
 
-              {/* Controls + Generate — outside overflow container so dropdowns aren't clipped */}
-              <div className="px-4 pt-2 pb-6">
+              {/* Controls + Generate — outside the overflow container so
+                  dropdowns aren't clipped. While the keyboard is up: the
+                  settings rows hide so the reference images and textarea keep
+                  enough room, and in real Safari the bottom padding leaves
+                  clearance for its floating URL pill, which covers the bottom
+                  ~50px of the viewport without reporting it via any API (#7). */}
+              <div
+                className={`px-4 pt-2 ${kb.open ? "" : "pb-6"}`}
+                style={
+                  kb.open
+                    ? { paddingBottom: `max(${safariPill ? 60 : 12}px, env(safe-area-inset-bottom))` }
+                    : undefined
+                }
+              >
+                {!kb.open && (<>
                 {/* Model | Search (outside box) | trash far right */}
                 <div className="flex items-center gap-2 mb-3">
                   <div className="inline-flex items-center rounded-2xl border border-dashed border-[var(--chrome-border-strong)]" style={{ background: "linear-gradient(135deg, var(--chrome-surface-hover) 0%, var(--chrome-surface) 100%)" }}>
@@ -415,6 +446,7 @@ export default function MobilePromptSheet({
                   <div className="h-5 w-px bg-[var(--chrome-border)]" />
                   <BatchSizeSelector dropdown />
                 </div>
+                </>)}
 
                 {/* Hidden file input */}
                 <input

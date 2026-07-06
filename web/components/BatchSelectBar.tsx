@@ -18,6 +18,12 @@ interface BatchSelectBarProps {
   showMoveTo?: boolean;
 }
 
+// Responsive strategy: the bar sizes to its content (no max-width — with
+// "Select all" present the full-label row is ~900px and must not be capped
+// below that or it wraps badly). Below lg the "ESC to cancel" hint drops
+// (keyboard-only advice); below md the button labels collapse to icons with
+// aria-label/title so everything fits one row on phones. Centered flex-wrap
+// is the graceful fallback if it ever does wrap.
 export default function BatchSelectBar({
   count,
   totalCount,
@@ -62,27 +68,30 @@ export default function BatchSelectBar({
       transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1], delay: 0.18 }}
       className="fixed bottom-0 left-0 right-0 z-40 pb-16 px-4 pointer-events-none"
     >
-      <div className="relative mx-auto max-w-[860px] pointer-events-auto flex justify-center">
-        <div className="relative glass-command rounded-2xl pl-5 pr-24 py-3.5 flex items-center gap-4 flex-wrap">
-          <span className="text-sm font-medium text-text-secondary tabular-nums">
-            {count} selected
+      <div className="relative mx-auto max-w-full pointer-events-auto flex justify-center">
+        <div className="relative glass-command rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 lg:px-5 lg:py-3.5 flex items-center justify-center gap-2 lg:gap-3 flex-wrap">
+          <span className="text-sm font-medium text-text-secondary tabular-nums whitespace-nowrap">
+            {count}<span className="hidden md:inline"> selected</span>
           </span>
           <div className="h-4 w-px bg-[var(--border)]" />
           {count < totalCount && (
             <button
               onClick={onSelectAll}
-              className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
+              aria-label={`Select all ${totalCount}`}
+              className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-3 lg:px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary whitespace-nowrap"
             >
               <CheckSquare size={14} />
-              Select all {totalCount}
+              <span className="hidden md:inline">Select all</span>{totalCount}
             </button>
           )}
           <button
             onClick={onDownload}
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
+            aria-label="Download selected"
+            title="Download"
+            className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-3 lg:px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary whitespace-nowrap"
           >
             <Download size={14} />
-            Download
+            <span className="hidden md:inline">Download</span>
           </button>
 
           {otherWorkspaces.length > 0 && (
@@ -91,10 +100,12 @@ export default function BatchSelectBar({
               <div className="relative" ref={copyRef}>
                 <button
                   onClick={() => { setCopyMenuOpen((v) => !v); setMoveMenuOpen(false); }}
-                  className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
+                  aria-label="Copy to workspace"
+                  title="Copy to"
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-3 lg:px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary whitespace-nowrap"
                 >
                   <Copy size={14} />
-                  Copy to
+                  <span className="hidden md:inline">Copy to</span>
                   <ChevronDown size={12} />
                 </button>
                 {copyMenuOpen && (
@@ -116,14 +127,16 @@ export default function BatchSelectBar({
               {showMoveTo && <div className="relative" ref={moveRef}>
                 <button
                   onClick={() => { setMoveMenuOpen((v) => !v); setCopyMenuOpen(false); }}
-                  className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
+                  aria-label="Move to workspace"
+                  title="Move to"
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-3 lg:px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary whitespace-nowrap"
                 >
                   <ArrowRightLeft size={14} />
-                  Move to
+                  <span className="hidden md:inline">Move to</span>
                   <ChevronDown size={12} />
                 </button>
                 {moveMenuOpen && (
-                  <div className="absolute bottom-full mb-2 left-0 z-50 min-w-[140px] rounded-xl border border-[var(--border)] bg-surface-elevated shadow-xl py-1">
+                  <div className="absolute bottom-full mb-2 right-0 lg:right-auto lg:left-0 z-50 min-w-[140px] rounded-xl border border-[var(--border)] bg-surface-elevated shadow-xl py-1">
                     {otherWorkspaces.map((ws) => (
                       <button
                         key={ws.id}
@@ -141,13 +154,15 @@ export default function BatchSelectBar({
 
           <button
             onClick={() => setDeleteModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-red-500/20 hover:text-red-400"
+            aria-label="Delete selected"
+            title="Delete"
+            className="flex items-center gap-1.5 rounded-xl bg-[var(--border)] px-3 lg:px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-red-500/20 hover:text-red-400 whitespace-nowrap"
           >
             <Trash2 size={14} />
-            Delete
+            <span className="hidden md:inline">Delete</span>
           </button>
 
-          <p className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-text-secondary/50 pointer-events-none">ESC to cancel</p>
+          <p className="hidden lg:block pl-1 text-xs text-text-secondary/50 pointer-events-none whitespace-nowrap">ESC to cancel</p>
         </div>
       </div>
       <DeleteConfirmModal

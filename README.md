@@ -16,6 +16,7 @@
 </div>
 
 ---
+Free, frontier-level image generation. Built to run on the Google Cloud console using its $300 free trial credit.
 
 A self-hosted AI studio for image and music generation, built on Google's Gemini Enterprise platform (formerly Vertex AI). No subscription, no middleman markup, no consumer-app data mining. Your entire library lives in SQLite and flat files on your own disk, and the only third party involved is Google's API, billed at raw rates with your own key. Clone the repo, run the setup script, and you have a private creative studio running on your own hardware.
 

@@ -44,7 +44,15 @@ export interface GeneratedImage {
   userId?: string;          // server model: which user generated this
   username?: string;        // server model: display name of the generating user
   filePath?: string;        // server model: relative path on disk
+  // Provenance. origin defaults to "user" for everything generated through the
+  // UI; agentLabel is a snapshot of the API key's name so the badge survives the
+  // key being revoked. See lib/agent/contract.ts.
+  origin?: ImageOrigin;
+  agentKeyId?: string | null;
+  agentLabel?: string | null;
 }
+
+export type ImageOrigin = "user" | "agent";
 
 // Metadata-only view: base64 payload excluded (image lives on server disk).
 // referenceImageDataUrls kept as optional so the lightbox can still show them if present.

@@ -2,6 +2,12 @@ export type JobStatus = "pending" | "done" | "error";
 
 export interface Job {
   status: JobStatus;
+  /**
+   * The user this job was started for. Optional only so that older call sites
+   * keep compiling; a job WITHOUT an owner is treated as belonging to nobody and
+   * is unreachable through the ownership-checked accessors, never as public.
+   */
+  userId?: string;
   // Resolved result fields (replaces base64 — image is saved to disk server-side)
   imageId?: string;
   thumbnailUrl?: string;
@@ -61,8 +67,8 @@ export function unregisterJobAbort(id: string): void {
   jobAborts!.delete(id);
 }
 
-export function createJob(id: string): void {
-  jobs.set(id, { status: "pending", createdAt: Date.now() });
+export function createJob(id: string, userId?: string): void {
+  jobs.set(id, { status: "pending", userId, createdAt: Date.now() });
 }
 
 export function resolveJob(id: string, result: { imageId: string; thumbnailUrl: string; width: number; height: number; mimeType: string; grounded?: boolean; referenceImagePaths?: string[] }): void {
@@ -79,4 +85,23 @@ export function failJob(id: string, error: string): void {
 
 export function getJob(id: string): Job | undefined {
   return jobs.get(id);
+}
+
+/**
+ * True when `userId` owns this job. An ownerless job (created before the owner
+ * was recorded, or by a caller that did not pass one) belongs to nobody, so this
+ * is false for everyone — job ids are unguessable UUIDs, but they are not a
+ * capability, and defaulting to "public" would let any signed-in user read or
+ * cancel another user's generation.
+ */
+export function isJobOwner(job: Job, userId: string): boolean {
+  return !!job.userId && job.userId === userId;
+}
+
+/** getJob, but only for the job's owner. Undefined otherwise — callers should
+ *  answer 404 rather than 403 so job ids are not confirmed to non-owners. */
+export function getJobForUser(id: string, userId: string): Job | undefined {
+  const job = jobs.get(id);
+  if (!job || !isJobOwner(job, userId)) return undefined;
+  return job;
 }

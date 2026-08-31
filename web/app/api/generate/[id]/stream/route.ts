@@ -1,15 +1,18 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getJob } from "@/lib/jobs";
+import { getJobForUser } from "@/lib/jobs";
 import { requireAuth } from "@/lib/authHelpers";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // OWASP: Broken Access Control — ensure only authenticated users can poll job status.
+  // OWASP: Broken Access Control — authentication alone is not enough here.
+  // Job ids are opaque but guessable in bulk, so the stream must also confirm
+  // the caller owns the job; otherwise it leaks any user's generation results.
   const authResult = await requireAuth();
   if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const { id } = await params;
   const encoder = new TextEncoder();
@@ -22,7 +25,7 @@ export async function GET(
       };
 
       // If job already has a result, push it immediately and close
-      const initial = getJob(id);
+      const initial = getJobForUser(id, userId);
       if (!initial) {
         send({ status: "not_found" });
         controller.close();
@@ -45,7 +48,7 @@ export async function GET(
           controller.close();
           return;
         }
-        const job = getJob(id);
+        const job = getJobForUser(id, userId);
         if (!job) {
           send({ status: "not_found" });
           controller.close();

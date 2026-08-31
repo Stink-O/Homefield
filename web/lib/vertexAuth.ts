@@ -74,14 +74,55 @@ export async function verifyServiceAccount(sa: ServiceAccount): Promise<void> {
   }
 }
 
-declare global {
-
-  var __hf_vertex_token: { value: string; expiresAt: number } | undefined;
+/**
+ * Stable identity of a service account, used to key the access-token cache.
+ *
+ * This is a hash, not the key itself, so it is safe to hold in memory, log or
+ * pass around. Two ServiceAccount objects parsed from the same JSON produce the
+ * same value; two different keys never collide. See ResolvedCredentials.cacheKey
+ * in lib/agent/contract.ts.
+ */
+export function credentialCacheKey(sa: ServiceAccount): string {
+  return crypto
+    .createHash("sha256")
+    .update(`${sa.client_email}\n${sa.project_id}\n${sa.private_key}`)
+    .digest("hex");
 }
 
-export async function getAccessToken(sa: ServiceAccount): Promise<string> {
-  if (globalThis.__hf_vertex_token && globalThis.__hf_vertex_token.expiresAt - Date.now() > 5 * 60 * 1000) {
-    return globalThis.__hf_vertex_token.value;
+declare global {
+
+  var __hf_vertex_tokens: Map<string, { value: string; expiresAt: number }> | undefined;
+}
+
+function tokenCache(): Map<string, { value: string; expiresAt: number }> {
+  if (!globalThis.__hf_vertex_tokens) {
+    globalThis.__hf_vertex_tokens = new Map<string, { value: string; expiresAt: number }>();
+  }
+  return globalThis.__hf_vertex_tokens;
+}
+
+/** Drops one cached token, or all of them when no key is given. */
+export function clearVertexToken(cacheKey?: string): void {
+  if (!globalThis.__hf_vertex_tokens) return;
+  if (cacheKey) globalThis.__hf_vertex_tokens.delete(cacheKey);
+  else globalThis.__hf_vertex_tokens.clear();
+}
+
+/**
+ * Exchanges the service account for a Vertex access token.
+ *
+ * The token is cached PER CREDENTIAL, never globally. A single global cache
+ * would hand user B a token minted from user A's service account, silently
+ * billing A's Google project for B's generations. Callers that already know the
+ * credential's identity (see ResolvedCredentials.cacheKey) should pass it;
+ * otherwise it is derived from the service account itself.
+ */
+export async function getAccessToken(sa: ServiceAccount, cacheKey?: string): Promise<string> {
+  const key = cacheKey || credentialCacheKey(sa);
+  const cache = tokenCache();
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt - Date.now() > 5 * 60 * 1000) {
+    return cached.value;
   }
   const jwt = createJWT(sa);
   const controller = new AbortController();
@@ -105,9 +146,9 @@ export async function getAccessToken(sa: ServiceAccount): Promise<string> {
     throw new Error((err as { error_description?: string }).error_description || "Failed to get access token");
   }
   const data = await res.json() as { access_token: string; expires_in?: number };
-  globalThis.__hf_vertex_token = {
+  cache.set(key, {
     value: data.access_token,
     expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
-  };
-  return globalThis.__hf_vertex_token.value;
+  });
+  return data.access_token;
 }

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { images } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/authHelpers";
-import { deleteImageFile, deleteReferenceImages } from "@/lib/fileStorage";
+import { deleteImageAssets } from "@/lib/fileStorage";
 import { broadcastImageDelete } from "@/lib/imageBroadcast";
 
 export async function DELETE(
@@ -20,12 +20,11 @@ export async function DELETE(
   });
   if (!image) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await deleteImageFile(image.filePath, image.thumbnailPath ?? null);
-  if (image.referenceImagePaths) {
-    const ownerId = image.filePath.split("/")[2]; // storage/images/<ownerId>/...
-    await deleteReferenceImages(ownerId, id);
-  }
+  // Drop the row first, then the files. Publishing/copying/saving-from-shared
+  // reuse the same file for several rows, so deleteImageAssets only unlinks what
+  // nothing else points at any more.
   await db.delete(images).where(eq(images.id, id));
+  await deleteImageAssets(image);
   broadcastImageDelete(auth.userId, id);
 
   return NextResponse.json({ success: true });

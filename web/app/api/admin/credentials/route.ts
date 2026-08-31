@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
 import { requireAuth, requireAdmin } from "@/lib/authHelpers";
 import {
   getCredentialStatus,
+  getUserCredentialStatus,
   setStoredCredentials,
   clearStoredCredentials,
+  setUserAccess,
 } from "@/lib/credentialStore";
 import { parseServiceAccount, verifyServiceAccount } from "@/lib/vertexAuth";
+import type { CredentialAccess } from "@/lib/agent/contract";
 
 export const dynamic = "force-dynamic";
+
+const ACCESS_TIERS: CredentialAccess[] = ["own", "shared", "none"];
 
 // GET: status for any signed-in user (the gallery banner needs to know whether
 // generation is available). Only admins see the resolved account identity.
@@ -79,6 +87,54 @@ export async function POST(req: NextRequest) {
     source: status.source,
     clientEmail: status.clientEmail,
     projectId: status.projectId,
+  });
+}
+
+// PATCH: set one user's credential access tier (admin only).
+//
+// This is the ONLY way a tier changes — /api/credentials deliberately refuses to
+// write it, so a user can neither grant themselves the instance key nor lift a
+// "none". Storing a tier does not touch that user's own encrypted key.
+export async function PATCH(req: NextRequest) {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  let body: { userId?: unknown; access?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  const userId = typeof body.userId === "string" ? body.userId.trim() : "";
+  if (!userId) {
+    return NextResponse.json({ error: "userId is required." }, { status: 400 });
+  }
+
+  const access = body.access as CredentialAccess;
+  if (typeof access !== "string" || !ACCESS_TIERS.includes(access)) {
+    return NextResponse.json(
+      { error: `access must be one of: ${ACCESS_TIERS.join(", ")}.` },
+      { status: 400 },
+    );
+  }
+
+  const target = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!target) {
+    return NextResponse.json({ error: "Unknown user." }, { status: 404 });
+  }
+
+  try {
+    setUserAccess(userId, access);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Could not update access.";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    userId,
+    username: target.username,
+    ...getUserCredentialStatus(userId),
   });
 }
 

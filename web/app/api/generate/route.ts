@@ -559,7 +559,9 @@ export async function POST(req: NextRequest) {
 
   const jobId = crypto.randomUUID();
   const imageId = crypto.randomUUID();
-  createJob(jobId);
+  // Jobs are owner-scoped: an ownerless job is inaccessible to everyone, so the
+  // userId must be recorded here or the creator's own polling returns 404.
+  createJob(jobId, userId);
 
   // Resolve the effective model now so we can include it in the pending broadcast.
   // Normalize legacy preview IDs to their GA equivalents before any API call.

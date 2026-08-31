@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { images } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/authHelpers";
-import { deleteImageFile } from "@/lib/fileStorage";
+import { deleteImageAssets } from "@/lib/fileStorage";
 
 export async function DELETE(
   _req: NextRequest,
@@ -24,7 +24,10 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await deleteImageFile(image.filePath, image.thumbnailPath ?? null);
+  // deleteImageAssets excludes this row from its own refcount, so the file is
+  // unlinked only when no other row (a copy, or the private original) still
+  // points at it. Publishing reuses the source file rather than copying it.
+  await deleteImageAssets(image);
   await db.delete(images).where(eq(images.id, id));
 
   return NextResponse.json({ success: true });

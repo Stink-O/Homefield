@@ -15,7 +15,9 @@ export default async function AdminPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-text-primary">User Management</h1>
-            <p className="text-text-secondary/60 text-sm mt-1">Manage HomeField accounts</p>
+            <p className="text-text-secondary/60 text-sm mt-1">
+              Manage HomeField accounts, roles, and who pays for each user&apos;s generations
+            </p>
           </div>
           <Link
             href="/"

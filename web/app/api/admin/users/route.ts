@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, userCredentials } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authHelpers";
+import type { CredentialAccess } from "@/lib/agent/contract";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -12,10 +13,16 @@ const USERNAME_MAX = 32;
 const PASSWORD_MIN = 6;
 const PASSWORD_MAX = 72;
 
+/** Matches the user_credentials.access column default in lib/db/schema.ts. */
+const DEFAULT_ACCESS: CredentialAccess = "shared";
+
 export async function GET() {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
 
+  // Left-joined so a user with no credential row still appears, on the default
+  // tier. hasOwnKey is derived here and the encrypted key itself never leaves
+  // the server — the admin needs to know a key exists, not what it is.
   const all = await db.select({
     id: users.id,
     username: users.username,
@@ -23,9 +30,20 @@ export async function GET() {
     role: users.role,
     approved: users.approved,
     createdAt: users.createdAt,
-  }).from(users).orderBy(users.createdAt);
+    access: userCredentials.access,
+    encryptedKey: userCredentials.encryptedKey,
+  })
+    .from(users)
+    .leftJoin(userCredentials, eq(userCredentials.userId, users.id))
+    .orderBy(users.createdAt);
 
-  return NextResponse.json(all);
+  return NextResponse.json(
+    all.map(({ encryptedKey, access, ...user }) => ({
+      ...user,
+      access: access ?? DEFAULT_ACCESS,
+      hasOwnKey: !!encryptedKey,
+    })),
+  );
 }
 
 export async function POST(req: NextRequest) {

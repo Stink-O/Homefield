@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Trash2, UserCheck, ShieldCheck, User, Check, X, Clock, Pencil } from "lucide-react";
+import type { CredentialAccess } from "@/lib/agent/contract";
+import TierBadge from "@/components/credentials/TierBadge";
+import UserTierPanel from "@/components/credentials/UserTierPanel";
+import { DEFAULT_TIER } from "@/components/credentials/tiers";
 
 interface UserRecord {
   id: string;
@@ -10,6 +14,9 @@ interface UserRecord {
   role: "admin" | "user";
   approved: boolean;
   createdAt: number;
+  /** Who pays for this user's generations. See lib/credentialStore.ts. */
+  access: CredentialAccess;
+  hasOwnKey: boolean;
 }
 
 export function UsersTable() {
@@ -25,10 +32,15 @@ export function UsersTable() {
   const [editPassword, setEditPassword] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [tierEditingId, setTierEditingId] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/admin/users");
-    if (res.ok) setUsers(await res.json());
+    if (res.ok) {
+      const rows = (await res.json()) as UserRecord[];
+      // Tolerate a response from an older server that predates the tier column.
+      setUsers(rows.map((u) => ({ ...u, access: u.access ?? DEFAULT_TIER, hasOwnKey: !!u.hasOwnKey })));
+    }
     setLoading(false);
   }
 
@@ -100,9 +112,15 @@ export function UsersTable() {
 
   function startEdit(user: UserRecord) {
     setEditingId(user.id);
+    setTierEditingId(null);
     setEditUsername(user.username);
     setEditPassword("");
     setEditError("");
+  }
+
+  function toggleTierEditor(user: UserRecord) {
+    setEditingId(null);
+    setTierEditingId((id) => (id === user.id ? null : user.id));
   }
 
   function cancelEdit() {
@@ -252,9 +270,20 @@ export function UsersTable() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-text-primary truncate">{user.username}</p>
-                      <p className="text-xs text-text-secondary/50 mt-0.5">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </p>
+                      {/* Who pays for this account's generations, visible in the row
+                          rather than behind a menu — and the control that changes it. */}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-text-secondary/50">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </span>
+                        <TierBadge
+                          access={user.access}
+                          hasOwnKey={user.hasOwnKey}
+                          compact
+                          active={tierEditingId === user.id}
+                          onClick={() => toggleTierEditor(user)}
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -295,6 +324,16 @@ export function UsersTable() {
                     </button>
                   </div>
                 </div>
+                {tierEditingId === user.id && (
+                  <UserTierPanel
+                    userId={user.id}
+                    username={user.username}
+                    access={user.access}
+                    hasOwnKey={user.hasOwnKey}
+                    onSaved={() => { setTierEditingId(null); load(); }}
+                    onCancel={() => setTierEditingId(null)}
+                  />
+                )}
                 {editingId === user.id && (
                   <div className="px-4 sm:px-6 pb-4 flex flex-col gap-3 border-t border-[var(--chrome-border)] pt-4">
                     <div className="flex flex-col sm:flex-row gap-3">

@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Upload, Check, KeyRound, ChevronDown, ExternalLink, Trash2, ShieldCheck } from "lucide-react";
+import { X, Check, KeyRound, Trash2, ShieldCheck } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
+import KeyJsonInput from "./credentials/KeyJsonInput";
+import SetupGuide from "./credentials/SetupGuide";
+import OwnKeyPanel from "./credentials/OwnKeyPanel";
+import { useOwnCredentials } from "./credentials/useOwnCredentials";
 
+/** GET /api/admin/credentials — the INSTANCE key. Readable by any signed-in user. */
 interface CredentialStatus {
   configured: boolean;
   source: "db" | "env" | "none";
@@ -13,6 +18,14 @@ interface CredentialStatus {
   projectId: string | null;
 }
 
+/**
+ * Google Cloud credentials.
+ *
+ * Two audiences in one modal: an admin manages the instance key everyone on the
+ * "shared" tier draws on, and every user manages their own key and sees the
+ * tier an admin put them on. The tier is never editable here — see
+ * OwnKeyPanel and PATCH /api/admin/credentials.
+ */
 export default function CredentialModal() {
   const { state, dispatch } = useApp();
   const [status, setStatus] = useState<CredentialStatus | null>(null);
@@ -20,10 +33,9 @@ export default function CredentialModal() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const open = state.credentialModalOpen;
+  const { status: own, loading: ownLoading, busy: ownBusy, saveKey, clearKey } = useOwnCredentials(open);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -43,15 +55,6 @@ export default function CredentialModal() {
   }, [open, loadStatus]);
 
   const close = () => dispatch({ type: "CLOSE_CREDENTIAL_MODAL" });
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setJson(typeof reader.result === "string" ? reader.result : "");
-    reader.readAsText(file);
-  };
 
   async function save(payload: { json: string } | { migrateFromEnv: true }) {
     setSaving(true);
@@ -98,10 +101,31 @@ export default function CredentialModal() {
     }
   }
 
+  // A user's own key decides whether THEY can generate, so the banner that says
+  // generation is unavailable has to follow their resolved status, not the
+  // instance key alone.
+  const syncOwn = useCallback(
+    async (run: () => Promise<{ ok: boolean; error?: string }>) => {
+      const result = await run();
+      if (result.ok) {
+        const res = await fetch("/api/credentials", { cache: "no-store" }).catch(() => null);
+        const data = res?.ok ? await res.json().catch(() => null) : null;
+        if (data && typeof data.canGenerate === "boolean") {
+          dispatch({ type: "SET_MEDIA_KEY_CONFIGURED", payload: data.canGenerate });
+        }
+      }
+      return result;
+    },
+    [dispatch],
+  );
+
   if (!open) return null;
 
   const isAdmin = status?.isAdmin ?? false;
   const onEnv = status?.source === "env";
+  // An admin on a non-default tier still needs their own key panel: their
+  // generations resolve through the same tiers as everyone else's.
+  const adminNeedsOwnPanel = !!own && (own.access !== "shared" || own.hasOwnKey);
 
   return (
     <AnimatePresence>
@@ -142,28 +166,31 @@ export default function CredentialModal() {
             </button>
           </div>
 
-          {/* Connected state */}
-          {status?.configured && (
-            <div className="mb-4 flex items-center gap-3 rounded-xl bg-accent/10 border border-accent/20 px-3.5 py-3">
-              <ShieldCheck size={16} className="text-accent flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm text-text-primary truncate">
-                  {status.clientEmail ? `Connected as ${status.clientEmail}` : "Connected"}
-                </p>
-                <p className="text-xs text-text-secondary/50">
-                  {onEnv ? "Loaded from environment file" : "Stored securely, encrypted"}
-                </p>
-              </div>
-            </div>
-          )}
-
           {!isAdmin ? (
-            <p className="text-sm text-text-secondary leading-relaxed">
-              A Google Cloud key is needed for media generation. Ask the administrator of this
-              instance to add one.
-            </p>
+            <OwnKeyPanel
+              status={own}
+              loading={ownLoading}
+              busy={ownBusy}
+              onSave={(value) => syncOwn(() => saveKey(value))}
+              onClear={() => syncOwn(clearKey)}
+            />
           ) : (
             <>
+              {/* Connected state — the instance key */}
+              {status?.configured && (
+                <div className="mb-4 flex items-center gap-3 rounded-xl bg-accent/10 border border-accent/20 px-3.5 py-3">
+                  <ShieldCheck size={16} className="text-accent flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-text-primary truncate">
+                      {status.clientEmail ? `Connected as ${status.clientEmail}` : "Connected"}
+                    </p>
+                    <p className="text-xs text-text-secondary/50">
+                      {onEnv ? "Loaded from environment file" : "Stored securely, encrypted"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Env import prompt: existing env key not yet in secure storage */}
               {onEnv && (
                 <button
@@ -175,27 +202,16 @@ export default function CredentialModal() {
                 </button>
               )}
 
-              <label className="block text-xs font-medium uppercase tracking-wider text-text-secondary/50 mb-2">
-                {status?.configured ? "Replace key" : "Service account JSON"}
-              </label>
-              <textarea
+              <KeyJsonInput
                 value={json}
-                onChange={(e) => setJson(e.target.value)}
-                spellCheck={false}
-                placeholder={'{\n  "type": "service_account",\n  "project_id": "...",\n  ...\n}'}
-                className="w-full h-32 resize-none rounded-xl bg-white/[0.03] border border-[var(--border)] px-3.5 py-3 font-mono text-xs text-text-primary placeholder:text-text-secondary/30 focus:outline-none focus:border-accent/40 transition-colors"
+                onChange={setJson}
+                label={status?.configured ? "Replace key" : "Service account JSON"}
+                disabled={saving}
               />
 
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="flex items-center gap-1.5 rounded-lg bg-[var(--border)] px-3 py-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
-                >
-                  <Upload size={13} /> Upload .json
-                </button>
-                <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={handleFile} />
-                <span className="text-xs text-text-secondary/40">Pasted keys never leave this server.</span>
-              </div>
+              <p className="mt-2 text-xs text-text-secondary/40">
+                This is the instance key. Everyone on the shared tier generates with it.
+              </p>
 
               {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
 
@@ -217,49 +233,18 @@ export default function CredentialModal() {
                 </button>
               )}
 
-              {/* Tutorial slot — free trial guide */}
-              <div className="mt-5 border-t border-[var(--border)] pt-4">
-                <button
-                  onClick={() => setGuideOpen((v) => !v)}
-                  className="flex w-full items-center justify-between text-left"
-                >
-                  <span className="text-sm text-text-primary">Don&apos;t have a key? Get $300 free credit</span>
-                  <ChevronDown
-                    size={15}
-                    className="text-text-secondary/40 transition-transform duration-200"
-                    style={{ transform: guideOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                  />
-                </button>
-                <AnimatePresence>
-                  {guideOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <ol className="mt-3 space-y-2 text-xs text-text-secondary/70 leading-relaxed list-decimal pl-4">
-                        <li>Start a free Google Cloud trial to get $300 in credit.</li>
-                        <li>Create a project and enable the Vertex AI API.</li>
-                        <li>Create a service account, then add a JSON key.</li>
-                        <li>Download the key file and upload it above.</li>
-                      </ol>
-                      <a
-                        href="https://cloud.google.com/free"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 inline-flex items-center gap-1.5 text-xs text-accent hover:underline"
-                      >
-                        Open Google Cloud free trial <ExternalLink size={12} />
-                      </a>
-                      <p className="mt-2 text-[11px] text-text-secondary/40">
-                        A full step-by-step walkthrough is coming soon.
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <SetupGuide />
+
+              {adminNeedsOwnPanel && (
+                <OwnKeyPanel
+                  status={own}
+                  loading={ownLoading}
+                  busy={ownBusy}
+                  onSave={(value) => syncOwn(() => saveKey(value))}
+                  onClear={() => syncOwn(clearKey)}
+                  secondary
+                />
+              )}
             </>
           )}
         </motion.div>

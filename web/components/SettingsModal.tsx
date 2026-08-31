@@ -2,9 +2,10 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronDown, Download, Upload, Check, Sun, Moon, Monitor, KeyRound, ShieldCheck } from "lucide-react";
+import { X, ChevronDown, Download, Upload, Check, Sun, Moon, Monitor } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useApp } from "@/contexts/AppContext";
+import CredentialAccessCard from "./credentials/CredentialAccessCard";
 import AgentAccessCard from "./agent/AgentAccessCard";
 import AgentSetupFlow from "./agent/AgentSetupFlow";
 import GalleryOriginFilter from "./agent/GalleryOriginFilter";
@@ -223,34 +224,21 @@ export default function SettingsModal() {
               </p>
             </div>
 
-            {isAdmin && (
-              <>
-                <div className="border-t border-[var(--border)]" />
+            <div className="border-t border-[var(--border)]" />
 
-                {/* Generation credentials (admin only) */}
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-text-secondary/50 mb-3">Generation key</p>
-                  <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] p-3 border border-[var(--border)]">
-                    <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${keyConfigured ? "bg-accent/15" : "bg-[var(--border)]"}`}>
-                      {keyConfigured ? <ShieldCheck size={15} className="text-accent" /> : <KeyRound size={15} className="text-text-secondary" />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-text-primary">{keyConfigured ? "Google Cloud connected" : "No key connected"}</p>
-                      <p className="text-xs text-text-secondary/50">{keyConfigured ? "Image and music generation enabled" : "Required for media generation"}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        dispatch({ type: "TOGGLE_SETTINGS" });
-                        dispatch({ type: "OPEN_CREDENTIAL_MODAL" });
-                      }}
-                      className="flex-shrink-0 rounded-lg bg-[var(--border)] px-3 py-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
-                    >
-                      {keyConfigured ? "Manage" : "Add key"}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            {/* Generation credentials — everyone sees where their generations
+                are billed; what the card offers depends on their tier. */}
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-text-secondary/50 mb-3">Generation key</p>
+              <CredentialAccessCard
+                isAdmin={isAdmin}
+                keyConfigured={keyConfigured}
+                onManage={() => {
+                  dispatch({ type: "TOGGLE_SETTINGS" });
+                  dispatch({ type: "OPEN_CREDENTIAL_MODAL" });
+                }}
+              />
+            </div>
 
             <div className="border-t border-[var(--border)]" />
 

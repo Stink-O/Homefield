@@ -37,6 +37,10 @@ export interface PendingStartEvent {
   selectedAspectRatio: string;
   quality: string | null;
   startedAt: number;
+  // Provenance travels with the shimmer, not only the finished image, so an
+  // agent's in-flight work is identifiable while it is still running. Absent
+  // for browser generations, which are the user's own by definition.
+  agentLabel?: string | null;
 }
 
 export interface PendingEndEvent {

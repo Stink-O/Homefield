@@ -89,6 +89,7 @@ export async function startAgentGeneration(
     selectedAspectRatio: aspectRatio,
     quality: quality ?? null,
     startedAt: Date.now(),
+    agentLabel: principal.label,
   });
 
   const controller = new AbortController();

@@ -351,6 +351,9 @@ export default function Home() {
           model: p.model,
           quality: p.quality,
           generating: state.processingJobIds.includes(p.jobId) || undefined,
+          // Only remote pendings can be an agent's; the local branch above is
+          // this tab's own work and is never badged.
+          agentLabel: p.agentLabel,
         })),
     ],
     [pending, state.currentWorkspaceId, state.remotePending, state.processingJobIds],

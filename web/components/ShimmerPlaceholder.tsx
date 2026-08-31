@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { AlertCircle, RefreshCw, X } from "lucide-react";
+import AgentBadge from "./agent/AgentBadge";
 
 interface ShimmerPlaceholderProps {
   prompt: string;
@@ -9,11 +10,17 @@ interface ShimmerPlaceholderProps {
   failed?: boolean;
   errorMessage?: string;
   generating?: boolean;
+  /**
+   * Name of the agent that started this generation, or null/undefined when the
+   * user started it themselves. Rendered with the same badge the finished card
+   * uses, so provenance is readable while the work is still in flight.
+   */
+  agentLabel?: string | null;
   onCancel?: () => void;
   onRetry?: () => void;
 }
 
-export default function ShimmerPlaceholder({ prompt, startedAt, failed, errorMessage, generating, onCancel, onRetry }: ShimmerPlaceholderProps) {
+export default function ShimmerPlaceholder({ prompt, startedAt, failed, errorMessage, generating, agentLabel, onCancel, onRetry }: ShimmerPlaceholderProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const showElapsed = typeof window !== "undefined" && localStorage.getItem("showElapsedTime") === "true";
@@ -101,10 +108,18 @@ export default function ShimmerPlaceholder({ prompt, startedAt, failed, errorMes
         </p>
       </div>
 
-      {/* State indicator + cancel */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+      {/* State indicator + cancel, led by the agent badge when one applies.
+          Bounded by left-3/right-3 rather than centred on the card's midpoint so
+          the badge can never push the row past the card edge; with no badge the
+          row still centres exactly as before. */}
+      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-center gap-1.5">
+        {/* Provenance while the work is still in flight. Same component, same
+            `onImage`/`compactLabel` treatment and the same leading position in
+            the bottom-line cluster that ImageCard gives it, so the badge reads
+            as the same object before and after the image lands. */}
+        {agentLabel && <AgentBadge label={agentLabel} onImage compactLabel className="min-w-0 shrink" />}
         <div
-          className={`h-1 w-1 rounded-full animate-pulse ${
+          className={`h-1 w-1 rounded-full animate-pulse shrink-0 ${
             isGenerating ? "bg-green-500/60" : "bg-accent/70"
           }`}
         />
@@ -124,7 +139,7 @@ export default function ShimmerPlaceholder({ prompt, startedAt, failed, errorMes
           <button
             onClick={onCancel}
             title="Cancel"
-            className="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-text-secondary/50 transition-colors hover:text-text-secondary"
+            className="ml-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-text-secondary/50 transition-colors hover:text-text-secondary"
           >
             <X size={10} />
           </button>

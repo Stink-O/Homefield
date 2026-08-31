@@ -24,6 +24,12 @@ interface PendingGeneration {
   failed?: boolean;
   errorMessage?: string;
   generating?: boolean;
+  /**
+   * Set only for generations started by an agent, which reach this tab over
+   * SSE. Anything the user started here is theirs by definition and stays
+   * unbadged.
+   */
+  agentLabel?: string | null;
 }
 
 interface GalleryProps {
@@ -172,6 +178,17 @@ export default memo(function Gallery({ pending, onPromptSelect, onRestore, onRef
   useEffect(() => {
     allPhotosRef.current = allPhotos;
   }, [allPhotos]);
+
+  // Agent provenance for in-flight cards. Kept as a side lookup rather than a
+  // field on GalleryPhoto because that shape is shared with the shared-space
+  // gallery, which has no notion of agent runs.
+  const agentLabelByPendingId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of pending) {
+      if (p.agentLabel) map.set(p.id, p.agentLabel);
+    }
+    return map;
+  }, [pending]);
 
   // Real images only, in allPhotos order (pending first, then history), for arrow navigation
   const realPhotos = useMemo(
@@ -391,6 +408,7 @@ export default memo(function Gallery({ pending, onPromptSelect, onRestore, onRef
                           failed={photo.pendingFailed}
                           errorMessage={photo.pendingErrorMessage}
                           generating={photo.pendingGenerating}
+                          agentLabel={photo.pendingId ? agentLabelByPendingId.get(photo.pendingId) : undefined}
                           onCancel={photo.pendingId ? () => onCancel?.(photo.pendingId!) : undefined}
                           onRetry={photo.pendingId && photo.pendingFailed ? () => onRetry?.(photo.pendingId!) : undefined}
                         />

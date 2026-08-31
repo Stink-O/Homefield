@@ -284,6 +284,16 @@ claude mcp add --transport http homefield http://your-host:3000/api/mcp --header
 > [!WARNING]
 > An API key is a bearer token. Over plain HTTP it travels in the clear on your network — worth a TLS proxy if your LAN is not fully trusted. Keys expire after 90 days by default and can be revoked at any time from Settings.
 
+### Checking a connection
+
+If a client reports a connection failure, this says which half is wrong:
+
+```bash
+node web/scripts/mcp-check.mjs http://your-host:3000 hf_live_...
+```
+
+It separates an unreachable server from a rejected key, lists the tools the key can actually see, and exits non-zero on failure.
+
 ### Tools
 
 | | |

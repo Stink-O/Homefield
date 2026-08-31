@@ -200,6 +200,41 @@ export async function createAgentKey(input: CreateAgentKeyInput): Promise<Minted
   };
 }
 
+/**
+ * Re-mints the workspace an "own" key writes into, and points the key at it.
+ *
+ * workspaces.id is ON DELETE SET NULL on api_keys, so deleting an agent's
+ * workspace leaves the key with no destination. Falling back to NULL would mean
+ * the Main library — the agent would start writing into its owner's personal
+ * gallery, which is the one thing "own" mode exists to prevent. Recreating is
+ * the only safe reading of the user's intent: they deleted a workspace, not the
+ * key's confinement.
+ */
+export async function ensureOwnWorkspace(keyId: string): Promise<string> {
+  const key = await db.query.apiKeys.findFirst({ where: eq(apiKeys.id, keyId) });
+  if (!key) throw new Error("API key no longer exists");
+
+  if (key.defaultWorkspaceId) {
+    const existing = await db.query.workspaces.findFirst({
+      where: and(eq(workspaces.id, key.defaultWorkspaceId), eq(workspaces.userId, key.userId)),
+    });
+    if (existing) return existing.id;
+  }
+
+  const replacement = {
+    id: crypto.randomUUID(),
+    userId: key.userId,
+    name: key.name,
+    createdAt: Date.now(),
+  };
+  db.transaction((tx) => {
+    tx.insert(workspaces).values(replacement).run();
+    tx.update(apiKeys).set({ defaultWorkspaceId: replacement.id }).where(eq(apiKeys.id, keyId)).run();
+  });
+  console.warn(`[HomeField] recreated missing workspace for agent key ${key.prefix}`);
+  return replacement.id;
+}
+
 async function workspaceName(id: string | null): Promise<string | null> {
   if (!id) return null;
   const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.id, id) });

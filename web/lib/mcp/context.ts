@@ -13,7 +13,6 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { db } from "@/lib/db";
 import { images, workspaces } from "@/lib/db/schema";
 import type { AgentDenialReason, AgentPrincipal, AgentScope } from "@/lib/agent/contract";
-import { ensureOwnWorkspace } from "@/lib/agent/keys";
 
 export type ImageRow = typeof images.$inferSelect;
 
@@ -100,14 +99,10 @@ export async function resolveWorkspaceTarget(
   principal: AgentPrincipal,
   requested: string | null | undefined,
 ): Promise<string | null> {
-  // An "own" key whose workspace was deleted has a null default, which would
-  // otherwise resolve to the Main library — the agent would start writing into
-  // its owner's personal gallery. Re-mint instead: the user deleted a
-  // workspace, not the key's confinement.
-  const fallback =
-    principal.destinationMode === "own" && !principal.defaultWorkspaceId
-      ? await ensureOwnWorkspace(principal.keyId)
-      : principal.defaultWorkspaceId;
+  // Guaranteed non-null for "own" and "pinned": requireAgentKey resolves the
+  // destination once and refuses the request outright if a restricted key has
+  // no workspace, so no guard here can silently widen to the Main library.
+  const fallback = principal.defaultWorkspaceId;
 
   if (principal.destinationMode !== "any") {
     if (requested === undefined || requested === null) return fallback;

@@ -40,12 +40,15 @@ export function rememberAgentJob(jobId: string, owner: AgentJobOwner): void {
 }
 
 /**
- * Returns the job's owner record only if this user started it. A job belonging
- * to someone else — or to the browser UI — is reported as unknown.
+ * Returns the job's owner record only if THIS key started it.
+ *
+ * Matching on the user alone would let one key report on, and cancel, work
+ * started by another key or from the browser — including generations outside
+ * its own workspace. The key id is the whole point of storing this.
  */
-export function lookupAgentJob(jobId: string, userId: string): AgentJobOwner | null {
+export function lookupAgentJob(jobId: string, keyId: string, userId: string): AgentJobOwner | null {
   const owner = agentJobs.get(jobId);
-  if (!owner || owner.userId !== userId) return null;
+  if (!owner || owner.userId !== userId || owner.keyId !== keyId) return null;
   return owner;
 }
 

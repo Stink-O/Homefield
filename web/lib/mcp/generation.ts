@@ -10,9 +10,6 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { images } from "@/lib/db/schema";
 import { abortJob, failJob, getJobForUser } from "@/lib/jobs";
 import { clearSharedPending } from "@/lib/sharedPending";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -125,12 +122,6 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
 
         const now = Date.now();
         const limit = principal.limits.dailyImageLimit;
-        if (limit !== null && principal.usedToday >= limit) {
-          throw new AgentToolError(
-            "daily_limit_reached",
-            `This API key has already generated its daily allowance of ${limit} image(s). The counter resets at 00:00 UTC.`,
-          );
-        }
 
         const rl = checkRateLimit(`agent-generate:${principal.keyId}`, RATE_LIMIT, RATE_WINDOW_MS);
         if (!rl.allowed) {
@@ -164,6 +155,23 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
 
         const referenceImages = await collectReferences(principal, args.reference_image_ids, args.reference_images);
 
+        // Reserve the image against the daily budget BEFORE starting work.
+        //
+        // principal.usedToday is read once at authentication, so checking it
+        // here would let N concurrent calls all see the same pre-flight value
+        // and all pass — a key capped at 5 could burn the whole rate-limit
+        // window. incrementDailyUsage is an atomic SQL increment, so making it
+        // the gate is what actually serialises the decision. Over-refusing at
+        // the boundary is the safe direction for a spend limit.
+        const usedToday = await incrementDailyUsage(principal.keyId, now);
+        if (limit !== null && usedToday > limit) {
+          await incrementDailyUsage(principal.keyId, now, -1);
+          throw new AgentToolError(
+            "daily_limit_reached",
+            `This API key has already generated its daily allowance of ${limit} image(s). The counter resets at 00:00 UTC.`,
+          );
+        }
+
         let handle;
         try {
           handle = await startAgentGeneration({
@@ -180,6 +188,9 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
           // The one thing the pipeline throws for rather than failing the job:
           // an account with no usable Google credentials. The contract has a
           // reason for exactly this, so report it instead of a generic failure.
+          // Nothing was generated, so release the reservation rather than
+          // charging the budget for a job that never started.
+          await incrementDailyUsage(principal.keyId, now, -1).catch(() => {});
           if (err instanceof NoCredentialsError) {
             throw new AgentToolError("no_credentials", err.message);
           }
@@ -192,7 +203,6 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
           imageId: handle.imageId,
           startedAt: now,
         });
-        const usedToday = await incrementDailyUsage(principal.keyId, now);
 
         return toolJson(
           {
@@ -225,9 +235,9 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
     },
     async (args) =>
       runTool(async () => {
-        const owner = lookupAgentJob(args.job_id, principal.userId);
+        const owner = lookupAgentJob(args.job_id, principal.keyId, principal.userId);
         if (!owner) {
-          throw new AgentToolError("not_found", `Job ${args.job_id} was not started by this API key's account, or has expired.`);
+          throw new AgentToolError("not_found", `Job ${args.job_id} was not started by this API key, or has expired.`);
         }
 
         const job = getJobForUser(args.job_id, principal.userId);
@@ -241,10 +251,12 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
           return toolJson({ job_id: args.job_id, status: "error", error: job.error ?? "Generation failed" });
         }
 
+        // Re-check the finished image through the same guard every other
+        // id-addressed tool uses. A job handle must not become a way to read an
+        // image the key could not otherwise reach.
         const imageId = job.imageId ?? owner.imageId;
-        const row = await db.query.images.findFirst({ where: eq(images.id, imageId) });
-        // Ownership is re-checked against the row itself, not just the job note.
-        if (!row || row.userId !== principal.userId) {
+        const row = await requireAccessibleImage(principal, imageId).catch(() => null);
+        if (!row) {
           throw new AgentToolError("not_found", `The generated image ${imageId} is no longer available.`);
         }
 
@@ -277,9 +289,9 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
     },
     async (args) =>
       runTool(async () => {
-        const owner = lookupAgentJob(args.job_id, principal.userId);
+        const owner = lookupAgentJob(args.job_id, principal.keyId, principal.userId);
         if (!owner) {
-          throw new AgentToolError("not_found", `Job ${args.job_id} was not started by this API key's account, or has expired.`);
+          throw new AgentToolError("not_found", `Job ${args.job_id} was not started by this API key, or has expired.`);
         }
         abortJob(args.job_id);
         failJob(args.job_id, "Cancelled");

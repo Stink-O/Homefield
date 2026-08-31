@@ -29,7 +29,15 @@ export interface GenerationJobParams {
   prompt: string;
   /** Already normalised to a GA model id. */
   model: string;
-  aspectRatio: string;
+  /**
+   * Null when the caller did not specify one. Two different defaults apply and
+   * they are not interchangeable: the model call falls back to "Auto" (which
+   * Gemini reads as "you decide" and Imagen as "omit the parameter"), while the
+   * stored row and the broadcasts fall back to "1:1", the concrete ratio the
+   * gallery lays out against. Collapsing them records "Auto" as if it were a
+   * real aspect ratio.
+   */
+  aspectRatio: string | null;
   selectedAspectRatio: string;
   quality?: string;
   searchGrounding?: boolean;
@@ -52,10 +60,14 @@ export interface GenerationJobParams {
 export async function runGenerationJob(params: GenerationJobParams): Promise<void> {
   const {
     jobId, imageId, userId, username, prompt, model: selectedModel,
-    aspectRatio, selectedAspectRatio, quality, searchGrounding,
+    aspectRatio: requestedAspectRatio, selectedAspectRatio, quality, searchGrounding,
     workspaceId, referenceImages: validatedRefImages, isShared, sa,
     provenance, cancelSignal,
   } = params;
+
+  // See the note on GenerationJobParams.aspectRatio.
+  const apiAspectRatio = requestedAspectRatio ?? "Auto";
+  const aspectRatio = requestedAspectRatio ?? "1:1";
 
   try {
       const isGemini = selectedModel.startsWith("gemini");
@@ -77,7 +89,7 @@ export async function runGenerationJob(params: GenerationJobParams): Promise<voi
           result = await callReplicate(
             selectedModel,
             prompt as string,
-            aspectRatio as string ?? "Auto",
+            apiAspectRatio,
             validatedRefImages,
             quality as string | undefined,
             searchGrounding as boolean | undefined,
@@ -91,7 +103,7 @@ export async function runGenerationJob(params: GenerationJobParams): Promise<voi
           console.warn(`[HomeField] ${jobId.slice(0, 8)} Replicate failed, falling back to Vertex AI:`, replicateErr instanceof Error ? replicateErr.message : replicateErr);
           const releaseSlot = await acquireVertexSlot();
           try {
-            result = await callGemini(sa, selectedModel, prompt as string, aspectRatio as string ?? "Auto", validatedRefImages, quality as string | undefined, searchGrounding as boolean | undefined, cancelSignal);
+            result = await callGemini(sa, selectedModel, prompt as string, apiAspectRatio, validatedRefImages, quality as string | undefined, searchGrounding as boolean | undefined, cancelSignal);
           } finally {
             releaseSlot();
           }
@@ -104,8 +116,10 @@ export async function runGenerationJob(params: GenerationJobParams): Promise<voi
         const releaseSlot = await acquireVertexSlot();
         try {
           result = isGemini
-            ? await callGemini(sa, selectedModel, prompt as string, aspectRatio as string ?? "Auto", validatedRefImages, quality as string | undefined, searchGrounding as boolean | undefined, cancelSignal)
-            : await callImagen(sa, selectedModel, prompt as string, aspectRatio as string ?? "1:1", cancelSignal);
+            ? await callGemini(sa, selectedModel, prompt as string, apiAspectRatio, validatedRefImages, quality as string | undefined, searchGrounding as boolean | undefined, cancelSignal)
+            // Imagen takes the concrete ratio, not "Auto" — vertex.ts omits the
+            // parameter entirely for "Auto", which is right for Gemini and wrong here.
+            : await callImagen(sa, selectedModel, prompt as string, aspectRatio, cancelSignal);
         } finally {
           releaseSlot();
         }
@@ -131,8 +145,8 @@ export async function runGenerationJob(params: GenerationJobParams): Promise<voi
           workspaceId: isShared ? null : resolvedWorkspaceId,
           prompt,
           model: selectedModel,
-          aspectRatio: aspectRatio ?? "1:1",
-          selectedAspectRatio: selectedAspectRatio ?? aspectRatio ?? "Auto",
+          aspectRatio,
+          selectedAspectRatio: selectedAspectRatio ?? requestedAspectRatio ?? "Auto",
           quality: quality ?? null,
           width,
           height,
@@ -160,7 +174,7 @@ export async function runGenerationJob(params: GenerationJobParams): Promise<voi
           username,
           prompt,
           model: selectedModel,
-          aspectRatio: aspectRatio ?? "1:1",
+          aspectRatio,
           quality: quality ?? null,
           width,
           height,
@@ -181,8 +195,8 @@ export async function runGenerationJob(params: GenerationJobParams): Promise<voi
           workspaceId: resolvedWorkspaceId,
           prompt,
           model: selectedModel,
-          aspectRatio: aspectRatio ?? "1:1",
-          selectedAspectRatio: (selectedAspectRatio ?? aspectRatio ?? "Auto") as string,
+          aspectRatio,
+          selectedAspectRatio: selectedAspectRatio ?? requestedAspectRatio ?? "Auto",
           quality: quality ?? null,
           width,
           height,

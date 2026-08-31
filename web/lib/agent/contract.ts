@@ -33,6 +33,16 @@ export const AGENT_KEY_DISPLAY_CHARS = 16;
 /** Default lifetime of a newly minted key, in days. */
 export const DEFAULT_KEY_TTL_DAYS = 90;
 
+/**
+ * Default daily image ceiling for a new key.
+ *
+ * Deliberately finite. Generation bills a paid API per image, and an unattended
+ * agent is exactly the caller that will not notice a runaway loop. A key minted
+ * with nothing but a name should not be able to spend without bound; raising
+ * this is a decision the owner makes explicitly in the setup flow.
+ */
+export const DEFAULT_DAILY_IMAGE_LIMIT = 50;
+
 /** Caps on what a key may create. Null means unrestricted. */
 export interface AgentLimits {
   maxQuality: Quality | null;

@@ -27,6 +27,7 @@ import {
 } from "@/lib/agent/contract";
 import {
   findAgentKeyByToken,
+  ensureOwnWorkspace,
   getDailyUsage,
   isWellFormedAgentToken,
   parseScopes,
@@ -128,7 +129,35 @@ export async function requireAgentKey(request: Request): Promise<AgentAuthResult
     return deny("account_unapproved", "The account that owns this API key is not approved.");
   }
 
-  const defaultWorkspaceId = await resolveDefaultWorkspace(key.userId, key.defaultWorkspaceId);
+  // Resolve the destination ONCE, here, and let a restricted key fail closed.
+  //
+  // default_workspace_id is ON DELETE SET NULL, and a null destination means
+  // the owner's Main library. Three separate guards downstream read this field
+  // — the write target, the read filter, and the per-image check — so leaving
+  // it null would quietly widen a confined key to the owner's whole gallery.
+  // Resolving at the principal means those guards cannot disagree.
+  let defaultWorkspaceId = await resolveDefaultWorkspace(key.userId, key.defaultWorkspaceId);
+
+  if (key.destinationMode === "own" && !defaultWorkspaceId) {
+    // "own" mints its own workspace, so re-minting is unambiguous: the user
+    // deleted a workspace, not the key's confinement.
+    try {
+      defaultWorkspaceId = await ensureOwnWorkspace(key.id);
+    } catch {
+      return deny("workspace_forbidden", "This key's workspace could not be restored. Mint a new key from Settings.");
+    }
+  }
+
+  if (key.destinationMode === "pinned" && !defaultWorkspaceId) {
+    // A pinned key was aimed at one workspace the user chose. If it is gone
+    // there is no safe substitute — guessing Main would put agent output in
+    // the owner's personal gallery, which is the thing pinning prevents.
+    return deny(
+      "workspace_forbidden",
+      "The workspace this key was pinned to no longer exists. Mint a new key from Settings.",
+    );
+  }
+
   const usedToday = await getDailyUsage(key.id, now);
 
   await recordKeyUse(key.id, now);

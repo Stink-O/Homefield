@@ -12,7 +12,7 @@ import { and, desc, eq, isNull, lt } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import { images, users } from "@/lib/db/schema";
-import { deleteImageFile, deleteReferenceImages } from "@/lib/fileStorage";
+import { deleteImageAssets } from "@/lib/fileStorage";
 import { broadcastImageDelete } from "@/lib/imageBroadcast";
 import { broadcastShared } from "@/lib/sharedBroadcast";
 import type { AgentPrincipal } from "@/lib/agent/contract";
@@ -132,11 +132,13 @@ export function registerImageTools(server: McpServer, principal: AgentPrincipal)
         requireScope(principal, "delete");
         const row = await requireAccessibleImage(principal, args.image_id);
 
-        await deleteImageFile(row.filePath, row.thumbnailPath ?? null);
-        if (row.referenceImagePaths) {
-          const ownerId = row.filePath.split("/")[2]; // storage/images/<ownerId>/...
-          await deleteReferenceImages(ownerId, row.id);
-        }
+        // deleteImageAssets excludes this row from its own refcount and derives
+        // the reference directory from the row's stored paths. Calling
+        // deleteImageFile directly here counted the row still being deleted, so
+        // the refcount never reached zero and every "deleted" file was orphaned
+        // on disk. Copies also inherit the original's referenceImagePaths, so
+        // deriving the directory from this row's id was wrong for them.
+        await deleteImageAssets(row);
         await db.delete(images).where(eq(images.id, row.id));
         broadcastImageDelete(principal.userId, row.id);
 
@@ -170,11 +172,15 @@ export function registerImageTools(server: McpServer, principal: AgentPrincipal)
           workspaceId: null,
           isShared: true,
           timestamp,
-          // Provenance points at the key that published it, so a restricted key
-          // can later identify (and only unpublish) its own shares.
-          origin: "agent",
+          // The shared copy keeps the SOURCE's provenance — publishing a
+          // picture does not make an agent its author, and badging a
+          // human-made image as agent-made would falsify the one signal the
+          // gallery gives about who made what.
+          origin: source.origin,
+          agentLabel: source.agentLabel,
+          // Who published it is tracked separately from who made it, so a
+          // restricted key can still only retract its own shares.
           agentKeyId: principal.keyId,
-          agentLabel: principal.label,
         });
 
         const owner = await db.query.users.findFirst({ where: eq(users.id, principal.userId) });
@@ -225,16 +231,22 @@ export function registerImageTools(server: McpServer, principal: AgentPrincipal)
             `No shared entry ${args.shared_image_id} belongs to this account. Pass the shared_image_id returned by publish_image.`,
           );
         }
-        // A workspace-restricted key may only retract what it published itself.
-        if (principal.destinationMode !== "any" && row.agentKeyId !== principal.keyId) {
+        // A key may only retract what it published itself, whatever its
+        // destination mode. "any" widens which workspaces it can address; it is
+        // not licence to take down shares made from the browser or by another
+        // key.
+        if (row.agentKeyId !== principal.keyId) {
           throw new AgentToolError(
             "workspace_forbidden",
             "This API key can only unpublish entries it published itself.",
           );
         }
 
-        // Row only. The file on disk is shared with the source image — deleting
-        // it here would take the original's pixels with it.
+        // Safe to release the assets: deleteImageAssets refcounts, so the file
+        // survives while the source image (or any copy) still points at it and
+        // is cleaned up when this was the last reference. Leaving it behind
+        // would orphan the file whenever the source had already been deleted.
+        await deleteImageAssets(row);
         await db.delete(images).where(eq(images.id, row.id));
         return toolText(`Removed shared entry ${row.id} from the shared space.`);
       }),

@@ -292,7 +292,7 @@ export async function POST(req: NextRequest) {
     username,
     prompt: prompt as string,
     model: selectedModel,
-    aspectRatio: (aspectRatio as string) ?? "Auto",
+    aspectRatio: typeof aspectRatio === "string" ? aspectRatio : null,
     selectedAspectRatio: (selectedAspectRatio ?? aspectRatio ?? "Auto") as string,
     quality: quality as string | undefined,
     searchGrounding: searchGrounding as boolean | undefined,

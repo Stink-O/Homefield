@@ -16,6 +16,7 @@ import {
   AGENT_KEY_PREFIX,
   ALL_AGENT_SCOPES,
   DEFAULT_AGENT_SCOPES,
+  DEFAULT_DAILY_IMAGE_LIMIT,
   DEFAULT_KEY_TTL_DAYS,
   utcDayKey,
   type AgentScope,
@@ -179,7 +180,9 @@ export async function createAgentKey(input: CreateAgentKeyInput): Promise<Minted
     defaultWorkspaceId,
     maxQuality: input.maxQuality ?? null,
     maxModel: input.maxModel ?? null,
-    dailyImageLimit: input.dailyImageLimit ?? null,
+    // undefined means "not specified" and takes the safe default; an explicit
+    // null is the owner deliberately choosing no ceiling.
+    dailyImageLimit: input.dailyImageLimit === undefined ? DEFAULT_DAILY_IMAGE_LIMIT : input.dailyImageLimit,
     createdAt: now,
     lastUsedAt: null,
     expiresAt,

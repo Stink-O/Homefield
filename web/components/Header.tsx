@@ -8,6 +8,7 @@ import { useState, useTransition, useRef, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useApp } from "@/contexts/AppContext";
 import WorkspaceMenu from "./header/WorkspaceMenu";
+import OriginFilterChip from "./header/OriginFilterChip";
 import type { RowHeightIndex } from "@/lib/types";
 
 interface HeaderProps {
@@ -99,6 +100,9 @@ export default function Header({ onOpenTemplate, isSharedMode }: HeaderProps) {
 
           {/* Workspace dropdown — private mode only */}
           {!isSharedMode && <WorkspaceMenu />}
+
+          {/* Who made it — appears only once agent images exist */}
+          {!isSharedMode && <OriginFilterChip />}
 
           {/* Shared space label */}
           {isSharedMode && (

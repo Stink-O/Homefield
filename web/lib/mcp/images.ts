@@ -8,7 +8,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
-import { and, desc, eq, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import { images, users } from "@/lib/db/schema";
@@ -67,22 +67,39 @@ export function registerImageTools(server: McpServer, principal: AgentPrincipal)
         if (filter !== undefined) {
           conditions.push(filter === null ? isNull(images.workspaceId) : eq(images.workspaceId, filter));
         }
+        // Composite cursor: "<timestamp>:<id>".
+        //
+        // Paging on the timestamp alone drops images. Batch generation writes
+        // several rows in the same millisecond, so if a page boundary lands
+        // inside such a group, "strictly before the last timestamp" skips the
+        // rest of it. A person scrolling might not notice; an agent paginating
+        // to completion silently gets an incomplete library. Ordering and
+        // paging by (timestamp, id) makes every row uniquely addressable.
         if (args.before) {
-          const cursor = Number(args.before);
-          if (!Number.isFinite(cursor)) throw new AgentToolError("invalid_input", "`before` must be a cursor returned by a previous call.");
-          conditions.push(lt(images.timestamp, cursor));
+          const [rawTs, rawId] = args.before.split(":");
+          const cursor = Number(rawTs);
+          if (!Number.isFinite(cursor) || !rawId) {
+            throw new AgentToolError("invalid_input", "`before` must be a cursor returned by a previous call.");
+          }
+          conditions.push(
+            or(
+              lt(images.timestamp, cursor),
+              and(eq(images.timestamp, cursor), lt(images.id, rawId)),
+            )!,
+          );
         }
 
         const rows = await db.select().from(images)
           .where(and(...conditions))
-          .orderBy(desc(images.timestamp))
+          .orderBy(desc(images.timestamp), desc(images.id))
           .limit(limit + 1);
 
         const page = rows.slice(0, limit);
+        const last = page[page.length - 1];
         return toolJson({
           images: page.map(imageSummary),
           has_more: rows.length > limit,
-          next_cursor: rows.length > limit && page.length > 0 ? String(page[page.length - 1].timestamp) : null,
+          next_cursor: rows.length > limit && last ? `${last.timestamp}:${last.id}` : null,
         });
       }),
   );

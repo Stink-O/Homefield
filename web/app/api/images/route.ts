@@ -13,6 +13,10 @@ export async function GET(req: NextRequest) {
   const cursorParam = searchParams.get("cursor");
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "30", 10), 100);
   const cursor = cursorParam ? parseInt(cursorParam, 10) : undefined;
+  // Provenance filter. Anything other than "user" or "agent" — including the
+  // parameter being absent — means "no filter".
+  const originParam = searchParams.get("origin");
+  const origin = originParam === "user" || originParam === "agent" ? originParam : null;
 
   // "main" and omitted both mean the NULL workspace in the database.
   // "all" skips the workspace filter entirely (used by For You to read across all workspaces).
@@ -24,6 +28,7 @@ export async function GET(req: NextRequest) {
     ...(isAll ? [] : [isMain ? isNull(images.workspaceId) : eq(images.workspaceId, workspaceId!)]),
   ];
   if (cursor !== undefined) conditions.push(lt(images.timestamp, cursor));
+  if (origin) conditions.push(eq(images.origin, origin));
 
   const results = await db.select({
     id: images.id,
@@ -41,6 +46,9 @@ export async function GET(req: NextRequest) {
     timestamp: images.timestamp,
     searchGrounding: images.searchGrounding,
     referenceImagePaths: images.referenceImagePaths,
+    origin: images.origin,
+    agentKeyId: images.agentKeyId,
+    agentLabel: images.agentLabel,
   }).from(images)
     .where(and(...conditions))
     .orderBy(desc(images.timestamp))

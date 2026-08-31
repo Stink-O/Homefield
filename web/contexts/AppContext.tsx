@@ -20,10 +20,14 @@ import {
   BatchSize,
   RowHeightIndex,
   Workspace,
+  ImageOrigin,
   MODEL_QUALITIES,
 } from "@/lib/types";
 import { getLastWorkspaceId, saveLastWorkspaceId } from "@/lib/storage";
 import { pendingJobs, localJobIds } from "@/lib/gemini";
+
+/** Gallery provenance filter. "all" is the default and means no filter. */
+export type OriginFilter = "all" | ImageOrigin;
 
 export interface RemotePendingItem {
   jobId: string;
@@ -52,6 +56,7 @@ interface AppState {
   historyLoading: boolean;
   historyHasMore: boolean;
   historyOldestTimestamp: number | undefined;
+  originFilter: OriginFilter;
   remotePending: RemotePendingItem[];
   processingJobIds: string[];
   // Media-generation key status. null = not yet checked.
@@ -83,6 +88,7 @@ type AppAction =
   | { type: "TOGGLE_SEARCH_GROUNDING" }
   | { type: "SET_SEARCH_GROUNDING"; payload: boolean }
   | { type: "SET_HISTORY_LOADING"; payload: boolean }
+  | { type: "SET_ORIGIN_FILTER"; payload: OriginFilter }
   | { type: "ADD_REMOTE_PENDING"; payload: RemotePendingItem }
   | { type: "REMOVE_REMOTE_PENDING"; payload: string }
   | { type: "ADD_PROCESSING_JOB"; payload: string }
@@ -124,6 +130,9 @@ function reducer(state: AppState, action: AppAction): AppState {
       // Image is already persisted server-side — just update UI state.
       const imageWorkspace = action.payload.workspaceId ?? "main";
       if (imageWorkspace !== state.currentWorkspaceId) return state;
+      // Respect the provenance filter, so a live arrival can't slip past a
+      // filter the server would have excluded it from.
+      if (state.originFilter !== "all" && (action.payload.origin ?? "user") !== state.originFilter) return state;
       if (state.history.some((img) => img.id === action.payload.id)) return state;
       return { ...state, history: [action.payload, ...state.history] };
     }
@@ -193,6 +202,19 @@ function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, searchGrounding: action.payload };
     case "SET_HISTORY_LOADING":
       return { ...state, historyLoading: action.payload };
+    case "SET_ORIGIN_FILTER": {
+      if (action.payload === state.originFilter) return state;
+      localStorage.setItem("originFilter", action.payload);
+      // Clear the page so the refetch below can't interleave with rows the
+      // new filter excludes.
+      return {
+        ...state,
+        originFilter: action.payload,
+        history: [],
+        historyLoading: true,
+        historyOldestTimestamp: undefined,
+      };
+    }
     case "ADD_REMOTE_PENDING":
       if (state.remotePending.some((p) => p.jobId === action.payload.jobId)) return state;
       return { ...state, remotePending: [action.payload, ...state.remotePending] };
@@ -227,6 +249,12 @@ function getInitialTheme(): "dark" | "light" | "system" {
 }
 
 
+function getInitialOriginFilter(): OriginFilter {
+  if (typeof window === "undefined") return "all";
+  const stored = localStorage.getItem("originFilter");
+  return stored === "user" || stored === "agent" ? stored : "all";
+}
+
 function resolveTheme(theme: "dark" | "light" | "system"): "dark" | "light" {
   if (theme === "system") {
     return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
@@ -253,6 +281,7 @@ const initialState: AppState = {
   historyLoading: true,
   historyHasMore: false,
   historyOldestTimestamp: undefined,
+  originFilter: getInitialOriginFilter(),
   remotePending: [],
   processingJobIds: [],
   mediaKeyConfigured: null,
@@ -358,7 +387,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session?.user?.id) return;
     const workspaceId = state.currentWorkspaceId;
-    fetch(`/api/images?workspaceId=${encodeURIComponent(workspaceId)}&limit=${PAGE_SIZE}`)
+    const params = new URLSearchParams({ workspaceId, limit: String(PAGE_SIZE) });
+    if (state.originFilter !== "all") params.set("origin", state.originFilter);
+    fetch(`/api/images?${params}`)
       .then((res) => res.ok ? res.json() : { items: [], hasMore: false })
       .then(({ items, hasMore }: { items: GeneratedImageMeta[]; hasMore: boolean }) => {
         // Include the workspaceId so the reducer can discard stale fetches that
@@ -368,8 +399,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         dispatchRef.current({ type: "SET_HISTORY_LOADING", payload: false });
       });
-   
-  }, [state.currentWorkspaceId, session?.user?.id]);
+
+  }, [state.currentWorkspaceId, state.originFilter, session?.user?.id]);
 
   useEffect(() => {
     loadingRef.current = false;
@@ -455,6 +486,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           searchGrounding: event.searchGrounding,
           workspaceId: event.workspaceId ?? "main",
           referenceImageDataUrls: event.referenceImageDataUrls,
+          // Provenance: without this an agent generation arriving live would
+          // show no badge until the next refresh.
+          origin: event.origin ?? "user",
+          agentKeyId: event.agentKeyId ?? null,
+          agentLabel: event.agentLabel ?? null,
         };
         // Remove any remote pending shimmer and processing state for this job.
         dispatchRef.current({ type: "REMOVE_REMOTE_PENDING", payload: event.jobId });
@@ -492,6 +528,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         workspaceId: state.currentWorkspaceId,
         limit: String(PAGE_SIZE),
       });
+      if (state.originFilter !== "all") params.set("origin", state.originFilter);
       if (state.historyOldestTimestamp !== undefined) {
         params.set("cursor", String(state.historyOldestTimestamp));
       }
@@ -505,7 +542,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       loadingRef.current = false;
     }
-  }, [state.historyHasMore, state.history.length, state.currentWorkspaceId, state.historyOldestTimestamp]);
+  }, [state.historyHasMore, state.history.length, state.currentWorkspaceId, state.originFilter, state.historyOldestTimestamp]);
 
   return (
     <AppContext.Provider value={{ state, dispatch, loadMoreHistory }}>

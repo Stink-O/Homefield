@@ -8,6 +8,8 @@ import type { GeneratedImageMeta, Workspace } from "@/lib/types";
 import { MODELS, normalizeModelId } from "@/lib/types";
 import { copyText } from "@/lib/uuid";
 import DeleteConfirmModal from "./DeleteConfirmModal";
+import AgentBadge from "./agent/AgentBadge";
+import { agentLabelOf } from "./agent/agentTheme";
 
 interface ImageCardProps {
   image: GeneratedImageMeta;
@@ -48,6 +50,9 @@ function ImageCard({ image, index, onPromptSelect, onRestore, onReference, isSel
   const [thumbFailed, setThumbFailed] = useState(false);
   const thumbRetries = useRef(0);
   const modelLabel = MODELS.find((m) => m.id === normalizeModelId(image.model))?.label ?? image.model;
+  // null for anything a person generated — the badge is the only difference an
+  // agent image has; every other action on the card behaves identically.
+  const agentLabel = agentLabelOf(image);
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -268,6 +273,9 @@ function ImageCard({ image, index, onPromptSelect, onRestore, onReference, isSel
           <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
             <p className="flex-1 min-w-0 truncate text-xs text-white/70">{image.prompt}</p>
             <div className="flex items-center gap-1 shrink-0">
+              {/* Bottom row only: the top-left corner is the batch checkbox and the
+                  top-right stacks the restore and menu buttons. */}
+              {agentLabel && <AgentBadge label={agentLabel} onImage compactLabel />}
               <span className="hidden [@container(min-width:200px)]:inline-block rounded bg-black/40 px-1.5 py-0.5 font-mono text-[10px] text-white/55">{modelLabel}</span>
               <>
                   <button onClick={handleCopy} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white/80 backdrop-blur-sm transition-colors hover:bg-white/20" title="Copy prompt">

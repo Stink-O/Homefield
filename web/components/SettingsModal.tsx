@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronDown, Download, Upload, Check, Sun, Moon, Monitor, KeyRound, ShieldCheck } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useApp } from "@/contexts/AppContext";
+import AgentAccessCard from "./agent/AgentAccessCard";
+import AgentSetupFlow from "./agent/AgentSetupFlow";
+import GalleryOriginFilter from "./agent/GalleryOriginFilter";
 // Legacy export/import from IndexedDB removed — images now stored server-side.
 
 export default function SettingsModal() {
@@ -22,6 +25,7 @@ export default function SettingsModal() {
     typeof window !== "undefined" && localStorage.getItem("showElapsedTime") === "true"
   );
   const [reloadPending, setReloadPending] = useState(false);
+  const [agentFlowOpen, setAgentFlowOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importStatus, setImportStatus] = useState<null | "importing" | "done" | "error">(null);
@@ -250,6 +254,15 @@ export default function SettingsModal() {
 
             <div className="border-t border-[var(--border)]" />
 
+            {/* Agent access */}
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-text-secondary/50 mb-3">Agent access</p>
+              <AgentAccessCard onOpen={() => setAgentFlowOpen(true)} />
+              <GalleryOriginFilter />
+            </div>
+
+            <div className="border-t border-[var(--border)]" />
+
             {/* Data */}
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-text-secondary/50 mb-3">Data</p>
@@ -419,6 +432,11 @@ export default function SettingsModal() {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* The setup flow needs more room than this modal has, so it covers it. */}
+      {agentFlowOpen && (
+        <AgentSetupFlow key="agent-setup-flow" onClose={() => setAgentFlowOpen(false)} />
+      )}
     </AnimatePresence>
   );
 }

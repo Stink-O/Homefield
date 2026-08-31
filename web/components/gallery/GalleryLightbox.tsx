@@ -5,6 +5,8 @@ import { Download, Wand2, SlidersHorizontal, Info, ChevronDown, Copy, Check, Tra
 import ZoomModal from "../ZoomModal";
 import { MODELS, normalizeModelId, type GeneratedImageMeta } from "@/lib/types";
 import { copyText } from "@/lib/uuid";
+import AgentBadge from "../agent/AgentBadge";
+import { agentLabelOf } from "../agent/agentTheme";
 
 const PROMPT_TRUNCATE_LENGTH = 120;
 
@@ -53,6 +55,7 @@ export default function GalleryLightbox({
   const formattedDate = new Date(image.timestamp).toLocaleString(undefined, {
     month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
   });
+  const agentLabel = agentLabelOf(image);
   const isLongPrompt = image.prompt.length > PROMPT_TRUNCATE_LENGTH;
   const displayedPrompt = isLongPrompt && !promptExpanded
     ? image.prompt.slice(0, PROMPT_TRUNCATE_LENGTH)
@@ -226,6 +229,12 @@ export default function GalleryLightbox({
                 <span className="text-xs text-text-secondary">Size</span>
                 <span className="text-xs text-text-primary font-semibold text-right">{image.width}×{image.height}</span>
               </div>
+              {agentLabel && (
+                <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                  <span className="text-xs text-text-secondary">Created by</span>
+                  <AgentBadge label={agentLabel} />
+                </div>
+              )}
               <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
                 <span className="text-xs text-text-secondary">Aspect Ratio</span>
                 <span className="text-xs text-text-primary font-semibold text-right">{image.aspectRatio}</span>
@@ -324,6 +333,14 @@ export default function GalleryLightbox({
                 <span className="text-xs text-text-secondary">Size</span>
                 <span className="text-xs text-text-primary font-semibold text-right">{image.width}×{image.height}</span>
               </div>
+
+              {/* Above the fold: provenance should not need a click to find. */}
+              {agentLabel && (
+                <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                  <span className="text-xs text-text-secondary">Created by</span>
+                  <AgentBadge label={agentLabel} />
+                </div>
+              )}
 
               {seeAll && (
                 <>

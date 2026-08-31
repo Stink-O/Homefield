@@ -1,3 +1,5 @@
+import type { ImageOrigin } from "@/lib/types";
+
 export interface ImageEvent {
   id: string;
   jobId: string;
@@ -15,6 +17,12 @@ export interface ImageEvent {
   timestamp: number;
   searchGrounding: boolean;
   referenceImageDataUrls?: string[];
+  // Provenance, carried live so an agent generation is badged the moment it
+  // arrives rather than only after a refresh. Optional: a user generation may
+  // omit them entirely and is treated as origin "user".
+  origin?: ImageOrigin;
+  agentKeyId?: string | null;
+  agentLabel?: string | null;
 }
 
 export interface PendingStartEvent {

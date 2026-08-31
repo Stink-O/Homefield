@@ -19,7 +19,13 @@ export const authConfig: NextAuthConfig = {
         path.startsWith("/api/auth") ||
         path.startsWith("/api/files") ||
         path === "/api/register" ||
-        path === "/api/setup"
+        path === "/api/setup" ||
+        // The MCP endpoint authenticates itself with an agent API key
+        // (Authorization: Bearer hf_live_…) and rejects session cookies
+        // outright — see lib/agent/auth.ts. Without this exemption the
+        // middleware answers every bearer request with a 302 to /login and
+        // MCP clients report an opaque connection failure with no clue why.
+        path === "/api/mcp"
       ) {
         return true;
       }

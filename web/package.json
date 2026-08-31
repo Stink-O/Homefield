@@ -15,6 +15,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@tanstack/react-virtual": "^3.13.19",
     "@wavesurfer/react": "^1.0.12",
     "bcryptjs": "^3.0.3",
@@ -23,6 +24,7 @@
     "framer-motion": "^12.34.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.575.0",
+    "mcp-handler": "^2.1.1",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "react": "19.2.3",
@@ -30,7 +32,8 @@
     "react-photo-album": "^3.5.1",
     "sharp": "^0.34.5",
     "wavesurfer.js": "^7.12.5",
-    "web-haptics": "^0.0.6"
+    "web-haptics": "^0.0.6",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

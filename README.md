@@ -11,7 +11,7 @@
 
 ⭐ If you like this project, star it on GitHub. It helps a lot!
 
-[Features](#features) • [Prerequisites](#prerequisites) • [Quick Start](#quick-start) • [Self-Hosting](#self-hosting-with-docker) • [Local Development](#local-development) • [Roadmap](#roadmap)
+[Features](#features) • [Prerequisites](#prerequisites) • [Quick Start](#quick-start) • [Self-Hosting](#self-hosting-with-docker) • [Agent Access](#agent-access-mcp) • [Local Development](#local-development) • [Roadmap](#roadmap)
 
 </div>
 
@@ -62,6 +62,13 @@ https://github.com/user-attachments/assets/69a89fee-0e56-4357-b8da-cdcc0def27c2
 - **Project workspaces** to separate generations by project or client
 - **Prompt template library** with categories, favourites, and "For You" recommendations based on your history (powered by Google's text-embedding-004 model)
 - **Cross-device sync** so everything follows your account across devices and tabs
+
+### Agent access
+
+- **MCP server** at `/api/mcp` so AI agents can generate into your library
+- **Per-agent workspaces** so agent output never lands in your own
+- **Scoped API keys** with spend ceilings, an expiry, and one-click revocation
+- **Visible provenance:** every agent-made image is badged and fully inspectable
 
 ### Collaboration
 
@@ -242,6 +249,61 @@ After that, new accounts require admin approval before they can generate anythin
 
 ---
 
+## Agent Access (MCP)
+
+HomeField exposes a [Model Context Protocol](https://modelcontextprotocol.io) server at `/api/mcp`, so an AI agent can generate images in your library, browse what it made, and search the prompt template library. It speaks the 2026-07-28 revision and falls back to the 2025 Streamable HTTP transport for older clients.
+
+Set it up from **Settings → Agent access**. The flow walks through naming the agent, choosing where it may write, what it may do, and what it may spend, then hands you a ready-to-paste command for your client.
+
+### Where agent images go
+
+An API key *is* the agent's identity, so the destination rule lives on the key rather than on each request — an agent cannot talk its way into a workspace you did not grant it.
+
+| Mode | Behaviour |
+|---|---|
+| **Own workspace** (default) | Creating the key mints a workspace named after the agent. Everything lands there and nowhere else. |
+| **Pinned** | The key is locked to one existing workspace you pick. |
+| **Any** | The agent chooses per request from your workspaces. |
+
+Nothing writes to your Main workspace unless you allow it. The confinement applies to reads too: a key restricted to one workspace cannot browse the rest of your library.
+
+### Telling agent work apart
+
+Every agent-generated image carries a violet badge with the agent's name on its gallery card and a **Created by** row in the lightbox. The label is stored alongside the image, so it survives revoking the key. Otherwise these are ordinary images — restore to prompt, use as reference, download, move, and delete all work exactly as they do for your own. The header filter scopes the gallery to **Everything / Yours / Agents**.
+
+### Connecting a client
+
+**Claude Code** connects directly:
+
+```bash
+claude mcp add --transport http homefield http://your-host:3000/api/mcp --header "Authorization: Bearer hf_live_..."
+```
+
+**Claude Desktop and claude.ai** require a public HTTPS URL — they reject `localhost` and LAN addresses. Either put HomeField behind a TLS reverse proxy (Tailscale Funnel and Cloudflare Tunnel both work), or bridge to it with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote). The setup flow generates the right config for each.
+
+> [!WARNING]
+> An API key is a bearer token. Over plain HTTP it travels in the clear on your network — worth a TLS proxy if your LAN is not fully trusted. Keys expire after 90 days by default and can be revoked at any time from Settings.
+
+### Tools
+
+| | |
+|---|---|
+| **Generating** | `generate_image`, `get_generation_status`, `cancel_generation` |
+| **Library** | `list_images`, `get_image`, `move_image` |
+| **Organising** | `list_workspaces`, `create_workspace` |
+| **Prompts** | `search_templates`, `save_template` |
+| **Destructive** *(off by default)* | `delete_image`, `publish_image`, `unpublish_image` |
+
+Editing is `generate_image` with `reference_image_ids` — there is no separate edit tool. Tools return a small preview inline plus a link to the full-resolution file, so a 4K image never floods the agent's context.
+
+New keys get the `generate` scope only. Deleting and publishing must be granted deliberately, and a key can also be capped to a maximum model, a maximum resolution, and a daily image budget.
+
+### Whose credit gets spent
+
+By default every account generates against the instance-wide Google key. Admins can move any user to their own service-account key from the Admin panel, in which case that user's generations — and their agents' — bill to their own Google project.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -264,7 +326,7 @@ After that, new accounts require admin approval before they can generate anythin
 
 - [ ] Video generation
 - [ ] Prompt chaining and multi-step workflows
-- [ ] Agentic use (MCP server / tool API for AI agents to generate and manage images)
+- [x] Agentic use (MCP server / tool API for AI agents to generate and manage images)
 - [ ] Local model support (Ollama / ComfyUI)
 - [ ] Shareable prompt packs
 - [ ] Native mobile app

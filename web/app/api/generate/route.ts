@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { ServiceAccount, getAccessToken } from "@/lib/vertexAuth";
-import { resolveServiceAccount } from "@/lib/credentialStore";
-import { AttachedImage, MAX_PROMPT_LENGTH } from "@/lib/types";
-import { createJob, resolveJob, failJob, registerJobAbort, unregisterJobAbort } from "@/lib/jobs";
+import { resolveCredentialsForUser } from "@/lib/credentialStore";
+import { MAX_PROMPT_LENGTH } from "@/lib/types";
+import { createJob, registerJobAbort } from "@/lib/jobs";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { images } from "@/lib/db/schema";
-import { saveImageFile, saveReferenceImages, deleteImageFile, deleteReferenceImages } from "@/lib/fileStorage";
-import { broadcastShared } from "@/lib/sharedBroadcast";
-import { broadcastImage, broadcastPendingStart, broadcastPendingEnd, broadcastPendingProcessing } from "@/lib/imageBroadcast";
-import { broadcastSharedPendingStart, broadcastSharedPendingEnd } from "@/lib/sharedBroadcast";
-import { registerSharedPending, clearSharedPending } from "@/lib/sharedPending";
+import { runGenerationJob } from "@/lib/generation/pipeline";
+import { broadcastPendingStart } from "@/lib/imageBroadcast";
+import { broadcastSharedPendingStart } from "@/lib/sharedBroadcast";
+import { registerSharedPending } from "@/lib/sharedPending";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { callReplicate } from "@/lib/replicate";
 
 // --- Input validation constants ---
 
@@ -62,333 +58,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 // App Router: mark this route as always dynamic (never statically cached).
 // This is a fire-and-forget generation endpoint; caching would be wrong.
 export const dynamic = "force-dynamic";
-
-// Credentials are resolved per request (encrypted DB value first, then env var)
-// so an admin can add or change the key from the web UI without a restart. See
-// lib/credentialStore.ts.
-
-// --- Vertex AI concurrency limiter ---
-// Preview Gemini models have strict QPM quotas. Bursting N concurrent requests
-// exhausts the quota window immediately and causes all of them to fail with 429.
-// This semaphore serializes Vertex AI calls (one at a time) so they stagger
-// naturally. Increase MAX_CONCURRENT_VERTEX if your quota allows it.
-const MAX_CONCURRENT_VERTEX = 1;
-let vertexInflight = 0;
-
-interface VertexQueueEntry {
-  tryAcquire: () => void;
-  drain: (err: Error) => void;
-}
-const vertexWaitQueue: VertexQueueEntry[] = [];
-
-function acquireVertexSlot(): Promise<() => void> {
-  return new Promise((resolve, reject) => {
-    const entry: VertexQueueEntry = {
-      tryAcquire: () => {
-        if (vertexInflight < MAX_CONCURRENT_VERTEX) {
-          vertexInflight++;
-          resolve(() => {
-            vertexInflight--;
-            if (vertexWaitQueue.length > 0) vertexWaitQueue.shift()!.tryAcquire();
-          });
-        } else {
-          vertexWaitQueue.push(entry);
-        }
-      },
-      drain: (err: Error) => reject(err),
-    };
-    entry.tryAcquire();
-  });
-}
-
-// Immediately reject all queued jobs. Called when a quota-exhausted error
-// is confirmed — there's no point making queued jobs wait and retry.
-function drainVertexQueue(err: Error): void {
-  const queued = vertexWaitQueue.splice(0);
-  for (const entry of queued) {
-    entry.drain(err);
-  }
-}
-
-// 429 gets more retries than transient server errors
-const MAX_RETRIES: Record<number, number> = { 429: 6, 500: 1, 502: 2, 503: 3 };
-
-// Truncated exponential backoff with full jitter (recommended by Google)
-// delay = min(cap, base * 2^attempt) + random jitter
-function backoffMs(attempt: number, status: number): number {
-  const base = status === 429 ? 2000 : 1000;
-  const cap = status === 429 ? 30000 : 10000;
-  const expo = Math.min(cap, base * Math.pow(2, attempt));
-  return expo + Math.random() * 1000; // add up to 1s of jitter
-}
-
-// How long to wait for a single Vertex AI response before giving up
-const VERTEX_TIMEOUT_MS = 180_000;
-
-// Fallback region used when the global endpoint exhausts retries on 429 or 5xx.
-// us-east4 has an independent quota pool from us-central1.
-const FALLBACK_REGION = "us-east4";
-
-async function fetchWithRetry(url: string, options: RequestInit, cancelSignal?: AbortSignal): Promise<Response> {
-  let attempt = 0;
-  while (true) {
-    if (cancelSignal?.aborted) throw new Error("Cancelled");
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), VERTEX_TIMEOUT_MS);
-    // Forward cancellation to the inner abort controller
-    const onCancel = () => controller.abort();
-    cancelSignal?.addEventListener("abort", onCancel, { once: true });
-    let res: Response;
-    try {
-      res = await fetch(url, { ...options, signal: controller.signal });
-    } catch (err) {
-      clearTimeout(timer);
-      cancelSignal?.removeEventListener("abort", onCancel);
-      if (err instanceof Error && err.name === "AbortError") {
-        if (cancelSignal?.aborted) throw new Error("Cancelled");
-        throw new Error(`Vertex AI request timed out after ${VERTEX_TIMEOUT_MS / 1000}s`);
-      }
-      throw err;
-    }
-    clearTimeout(timer);
-    cancelSignal?.removeEventListener("abort", onCancel);
-    if (res.ok) return res;
-    // Detect quota exhaustion (daily/project limit) vs transient rate limiting.
-    // RESOURCE_EXHAUSTED won't recover within any retry window — fail immediately
-    // so the queue drain can kick in and queued jobs don't waste time retrying too.
-    if (res.status === 429) {
-      const clone = res.clone();
-      const body = await clone.json().catch(() => null);
-      if (body?.error?.status === "RESOURCE_EXHAUSTED") return res;
-    }
-    const maxRetries = MAX_RETRIES[res.status] ?? 0;
-    if (maxRetries === 0 || attempt >= maxRetries) return res;
-    if (cancelSignal?.aborted) throw new Error("Cancelled");
-    await new Promise((r) => setTimeout(r, backoffMs(attempt, res.status)));
-    attempt++;
-  }
-}
-
-// Try each URL in sequence; advance only on 429 or 5xx after retries are exhausted.
-// Non-retriable 4xx errors are returned immediately from whichever URL produced them.
-async function fetchWithFallback(
-  urls: string[],
-  options: RequestInit,
-  cancelSignal?: AbortSignal
-): Promise<Response> {
-  let res: Response | undefined;
-  for (let i = 0; i < urls.length; i++) {
-    res = await fetchWithRetry(urls[i], options, cancelSignal);
-    if (res.ok) return res;
-    if (res.status >= 400 && res.status < 500 && res.status !== 429) return res;
-    if (i < urls.length - 1) {
-      console.warn(`[HomeField] ${urls[i]} returned ${res.status}, trying fallback region ${FALLBACK_REGION}`);
-    }
-  }
-  return res!;
-}
-
-// R1: Token is fetched inside each function just before the Vertex AI call so it is
-// always fresh, even for long-running generations that exceed the original token lifetime.
-async function callImagen(
-  sa: ServiceAccount,
-  model: string,
-  prompt: string,
-  aspectRatio: string,
-  cancelSignal?: AbortSignal
-): Promise<{ base64: string; mimeType: string; grounded?: boolean }> {
-  const accessToken = await getAccessToken(sa);
-  const urls = [
-    `https://aiplatform.googleapis.com/v1/projects/${sa.project_id}/locations/global/publishers/google/models/${model}:predict`,
-    `https://${FALLBACK_REGION}-aiplatform.googleapis.com/v1/projects/${sa.project_id}/locations/${FALLBACK_REGION}/publishers/google/models/${model}:predict`,
-  ];
-  const body = {
-    instances: [{ prompt }],
-    parameters: {
-      sampleCount: 1,
-      ...(aspectRatio && aspectRatio !== "Auto" && { aspectRatio }),
-      safetySetting: "block_few",
-      personGeneration: "allow_all",
-    },
-  };
-  const res = await fetchWithFallback(urls, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(body),
-  }, cancelSignal);
-  // R2: Wrap res.json() so a malformed response body never throws a raw SyntaxError.
-  let data: { predictions?: Array<{ bytesBase64Encoded?: string; mimeType?: string }>; error?: { message?: string; status?: string } };
-  try {
-    data = await res.json();
-  } catch {
-    throw new Error(`Vertex AI returned a non-JSON response (status ${res.status})`);
-  }
-  if (!res.ok) {
-    console.error(`[HomeField] Imagen ${res.status}:`, JSON.stringify(data?.error ?? data));
-    const isQuotaExhausted = res.status === 429 && data?.error?.status === "RESOURCE_EXHAUSTED";
-    const msg = isQuotaExhausted
-      ? "Quota exhausted — check your Vertex AI limits or try again later"
-      : res.status === 429
-      ? "Rate limit reached — please wait a moment and retry"
-      : data?.error?.message || `Vertex AI error (${res.status})`;
-    throw new Error(msg);
-  }
-  const prediction = data.predictions?.[0];
-  if (!prediction?.bytesBase64Encoded) throw new Error("No image generated");
-  return { base64: prediction.bytesBase64Encoded, mimeType: prediction.mimeType || "image/png" };
-}
-
-type GeminiStreamPart = { text?: string; inlineData?: { mimeType: string; data: string } };
-type GeminiStreamChunk = {
-  candidates?: Array<{
-    content?: { parts?: GeminiStreamPart[] };
-    finishReason?: string;
-    safetyRatings?: unknown;
-    groundingMetadata?: unknown;
-  }>;
-  promptFeedback?: unknown;
-  error?: { message?: string; status?: string };
-};
-
-// streamGenerateContent on Vertex AI returns a JSON array: [{chunk1}, {chunk2}, ...].
-// Merge all chunks into the same shape as a generateContent response
-// so the rest of callGemini can parse it identically.
-// Falls back to NDJSON (one object per line) in case the format varies.
-function mergeStreamChunks(text: string): GeminiStreamChunk {
-  const parts: GeminiStreamPart[] = [];
-  let finishReason: string | undefined;
-  let safetyRatings: unknown;
-  let groundingMetadata: unknown;
-  let promptFeedback: unknown;
-  let errorChunk: GeminiStreamChunk | undefined;
-
-  let chunks: GeminiStreamChunk[] = [];
-  try {
-    // Primary: Vertex AI REST streaming returns a JSON array
-    const parsed = JSON.parse(text);
-    chunks = Array.isArray(parsed) ? parsed : [parsed];
-  } catch {
-    // Fallback: NDJSON (one JSON object per line)
-    for (const line of text.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try { chunks.push(JSON.parse(trimmed)); } catch { continue; }
-    }
-  }
-
-  for (const chunk of chunks) {
-    if (chunk.error) { errorChunk = chunk; break; }
-    const candidate = chunk.candidates?.[0];
-    if (candidate?.content?.parts) parts.push(...candidate.content.parts);
-    if (candidate?.finishReason) finishReason = candidate.finishReason;
-    if (candidate?.safetyRatings) safetyRatings = candidate.safetyRatings;
-    if (candidate?.groundingMetadata) groundingMetadata = candidate.groundingMetadata;
-    if (chunk.promptFeedback) promptFeedback = chunk.promptFeedback;
-  }
-  if (errorChunk) return errorChunk;
-  return { candidates: [{ content: { parts }, finishReason, safetyRatings, groundingMetadata }], promptFeedback };
-}
-
-// R1: Token is fetched inside the function just before the Vertex AI call.
-async function callGemini(
-  sa: ServiceAccount,
-  model: string,
-  prompt: string,
-  aspectRatio: string,
-  images?: AttachedImage[],
-  quality?: string,
-  searchGrounding?: boolean,
-  cancelSignal?: AbortSignal
-): Promise<{ base64: string; mimeType: string; grounded?: boolean }> {
-  const accessToken = await getAccessToken(sa);
-  // Gemini image models are only available via the global endpoint — regional
-  // endpoints (e.g. us-east4) return 404. Use fetchWithRetry directly so 429s are
-  // retried with backoff against the same global URL rather than falling through to a
-  // regional fallback that will always fail.
-  // 2K/4K: generateContent silently ignores imageConfig.imageSize on the Flash model;
-  // streamGenerateContent honours it correctly (confirmed workaround for GA endpoint).
-  const useStream = quality === "2K" || quality === "4K";
-  const globalUrl = `https://aiplatform.googleapis.com/v1/projects/${sa.project_id}/locations/global/publishers/google/models/${model}:${useStream ? "streamGenerateContent" : "generateContent"}`;
-
-  const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
-  // Instruction before image: Gemini enters edit/transform mode more reliably when
-  // the text instruction comes first, then the reference image(s) to apply it to.
-  parts.push({ text: prompt });
-  if (images && images.length > 0) {
-    for (const img of images) {
-      parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
-    }
-  }
-
-  const body = {
-    contents: [{ role: "user", parts }],
-    ...(searchGrounding && { tools: [{ googleSearch: {} }] }),
-    generationConfig: {
-      responseModalities: ["TEXT", "IMAGE"],
-      ...((aspectRatio && aspectRatio !== "Auto") || quality
-        ? {
-          imageConfig: {
-            ...(aspectRatio && aspectRatio !== "Auto" && { aspectRatio }),
-            ...(quality && { imageSize: quality }),
-          }
-        }
-        : {}),
-    },
-  };
-  const res = await fetchWithRetry(globalUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(body),
-  }, cancelSignal);
-  // R2: Parse response — streaming (NDJSON) path for 2K/4K, JSON for everything else.
-  let data: {
-    candidates?: Array<{
-      content?: { parts?: Array<Record<string, unknown>> };
-      finishReason?: string;
-      safetyRatings?: unknown;
-      groundingMetadata?: unknown;
-    }>;
-    promptFeedback?: unknown;
-    error?: { message?: string; status?: string };
-  };
-  try {
-    if (useStream && res.ok) {
-      const raw = await res.text();
-      data = mergeStreamChunks(raw);
-    } else {
-      data = await res.json();
-    }
-  } catch {
-    throw new Error(`Vertex AI returned a non-JSON response (status ${res.status})`);
-  }
-  if (!res.ok) {
-    console.error(`[HomeField] Gemini ${res.status} model=${model}:`, JSON.stringify(data?.error ?? data));
-    const isQuotaExhausted = res.status === 429 && data?.error?.status === "RESOURCE_EXHAUSTED";
-    const msg = isQuotaExhausted
-      ? "Quota exhausted — check your Vertex AI limits or try again later"
-      : res.status === 429
-      ? "Rate limit reached — please wait a moment and retry"
-      : data?.error?.message || `Vertex AI error (${res.status})`;
-    throw new Error(msg);
-  }
-  const candidate = data.candidates?.[0];
-  const responseParts = candidate?.content?.parts;
-  const imagePart = responseParts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
-  if (!imagePart?.inlineData) {
-    // Diagnostic: log the full response so we can see what the API actually returned
-    console.error("[HomeField] callGemini — no image in response. Full response:", JSON.stringify({
-      candidateCount: data.candidates?.length ?? 0,
-      finishReason: candidate?.finishReason,
-      promptFeedback: data.promptFeedback,
-      safetyRatings: candidate?.safetyRatings,
-      partTypes: responseParts?.map((p: Record<string, unknown>) => Object.keys(p)),
-      textParts: responseParts?.filter((p: { text?: string }) => p.text).map((p: { text?: string }) => p.text?.slice(0, 200)),
-    }));
-    throw new Error("No image in response");
-  }
-  const grounded = !!(candidate?.groundingMetadata);
-  return { base64: (imagePart.inlineData as { mimeType: string; data: string }).data, mimeType: (imagePart.inlineData as { mimeType: string; data: string }).mimeType, grounded };
-}
 
 export async function POST(req: NextRequest) {
   // Auth check
@@ -552,7 +221,10 @@ export async function POST(req: NextRequest) {
     validatedRefImages = refImages as { base64: string; mimeType: string }[];
   }
 
-  const { sa } = resolveServiceAccount();
+  // Credentials are resolved per user so each account can bill its own Google
+  // project. See lib/credentialStore.ts for the own/shared/none tiers.
+  const credentials = resolveCredentialsForUser(userId);
+  const sa = credentials.sa;
 
   // Fetch username for shared broadcast (do this before the fire-and-forget)
   const username = session.user?.name ?? "Unknown";
@@ -611,160 +283,25 @@ export async function POST(req: NextRequest) {
   const genController = new AbortController();
   registerJobAbort(jobId, () => genController.abort());
 
-  // Fire-and-forget: run generation in the background
-  (async () => {
-    try {
-      const isGemini = selectedModel.startsWith("gemini");
-
-      // Server-side diagnostic: log reference image count and sizes so retry issues are
-      // immediately visible in the terminal (images must be re-sent every call).
-      console.log(
-        `[HomeField] ${jobId.slice(0, 8)} → ${selectedModel} | ` +
-        `${validatedRefImages && validatedRefImages.length > 0
-          ? `${validatedRefImages.length} ref image(s): ${validatedRefImages.map((img) => `${img.mimeType} ${Math.round(img.base64.length / 1024)}KB`).join(", ")}`
-          : "no ref images"}`
-      );
-
-      let result: { base64: string; mimeType: string; grounded?: boolean };
-      const useReplicate = process.env.GENERATION_PROVIDER === "replicate" && isGemini;
-
-      if (useReplicate) {
-        try {
-          result = await callReplicate(
-            selectedModel,
-            prompt as string,
-            aspectRatio as string ?? "Auto",
-            validatedRefImages,
-            quality as string | undefined,
-            searchGrounding as boolean | undefined,
-            genController.signal,
-            () => broadcastPendingProcessing(userId, jobId)
-          );
-        } catch (replicateErr) {
-          if (genController.signal.aborted) throw replicateErr;
-          // Replicate failed — fall back to Vertex AI if credentials are available.
-          if (!sa) throw replicateErr;
-          console.warn(`[HomeField] ${jobId.slice(0, 8)} Replicate failed, falling back to Vertex AI:`, replicateErr instanceof Error ? replicateErr.message : replicateErr);
-          const releaseSlot = await acquireVertexSlot();
-          try {
-            result = await callGemini(sa, selectedModel, prompt as string, aspectRatio as string ?? "Auto", validatedRefImages, quality as string | undefined, searchGrounding as boolean | undefined, genController.signal);
-          } finally {
-            releaseSlot();
-          }
-        }
-      } else {
-        if (!sa) throw new Error("Server credentials not configured");
-        // Acquire a concurrency slot before hitting Vertex AI.
-        // Releases as soon as the network call finishes so the next queued job
-        // can start immediately while we write to disk and DB.
-        const releaseSlot = await acquireVertexSlot();
-        try {
-          result = isGemini
-            ? await callGemini(sa, selectedModel, prompt as string, aspectRatio as string ?? "Auto", validatedRefImages, quality as string | undefined, searchGrounding as boolean | undefined, genController.signal)
-            : await callImagen(sa, selectedModel, prompt as string, aspectRatio as string ?? "1:1", genController.signal);
-        } finally {
-          releaseSlot();
-        }
-      }
-
-      // Save image to disk and generate thumbnail
-      const ownerId = isShared ? "shared" : userId;
-      const { filePath, thumbnailPath, width, height } = await saveImageFile(ownerId, imageId, result.base64, result.mimeType);
-      const refPaths = validatedRefImages && validatedRefImages.length > 0
-        ? await saveReferenceImages(ownerId, imageId, validatedRefImages)
-        : [];
-      const thumbnailUrl = `/api/files/${thumbnailPath}`;
-      const timestamp = Date.now();
-
-      // workspaceId ownership was validated in the synchronous handler before generation started.
-      const resolvedWorkspaceId: string | null = (!isShared && typeof workspaceId === "string") ? workspaceId : null;
-
-      // Persist to database — if this fails, clean up saved files to prevent orphans on disk
-      try {
-        await db.insert(images).values({
-          id: imageId,
-          userId,
-          workspaceId: isShared ? null : resolvedWorkspaceId,
-          prompt,
-          model: selectedModel,
-          aspectRatio: aspectRatio ?? "1:1",
-          selectedAspectRatio: selectedAspectRatio ?? aspectRatio ?? "Auto",
-          quality: quality ?? null,
-          width,
-          height,
-          filePath,
-          thumbnailPath,
-          mimeType: result.mimeType,
-          timestamp,
-          isShared: isShared ?? false,
-          searchGrounding: result.grounded ?? false,
-          referenceImagePaths: refPaths.length > 0 ? JSON.stringify(refPaths) : null,
-        });
-      } catch (dbErr) {
-        await deleteImageFile(filePath, thumbnailPath).catch(() => {});
-        if (refPaths.length > 0) await deleteReferenceImages(ownerId, imageId).catch(() => {});
-        throw dbErr;
-      }
-
-      // Broadcast to shared gallery subscribers if this is a shared generation
-      if (isShared) {
-        broadcastShared({
-          id: imageId,
-          jobId,
-          userId,
-          username,
-          prompt,
-          model: selectedModel,
-          aspectRatio: aspectRatio ?? "1:1",
-          quality: quality ?? null,
-          width,
-          height,
-          thumbnailUrl,
-          timestamp,
-          referenceImageDataUrls: refPaths.length > 0 ? refPaths.map((p) => `/api/files/${p}`) : undefined,
-        });
-      }
-
-      resolveJob(jobId, { imageId, thumbnailUrl, width, height, mimeType: result.mimeType, grounded: result.grounded, referenceImagePaths: refPaths.length > 0 ? refPaths : undefined });
-
-      // Broadcast to all devices logged in as this user so they update in real-time.
-      if (!isShared) {
-        broadcastImage(userId, {
-          id: imageId,
-          jobId,
-          userId,
-          workspaceId: resolvedWorkspaceId,
-          prompt,
-          model: selectedModel,
-          aspectRatio: aspectRatio ?? "1:1",
-          selectedAspectRatio: (selectedAspectRatio ?? aspectRatio ?? "Auto") as string,
-          quality: quality ?? null,
-          width,
-          height,
-          thumbnailUrl,
-          mimeType: result.mimeType,
-          timestamp,
-          searchGrounding: result.grounded ?? false,
-          referenceImageDataUrls: refPaths.length > 0 ? refPaths.map((p) => `/api/files/${p}`) : undefined,
-        });
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Internal error";
-      console.error(`[HomeField] ${jobId.slice(0, 8)} FAILED:`, message);
-      // Quota exhaustion won't recover — immediately fail all queued jobs
-      // rather than making each one wait and retry for nothing.
-      if (message.startsWith("Quota exhausted")) {
-        drainVertexQueue(new Error(message));
-      }
-      failJob(jobId, message);
-      // Tell all devices to remove the pending shimmer for this job.
-      if (!isShared) broadcastPendingEnd(userId, jobId);
-      else broadcastSharedPendingEnd(jobId);
-    } finally {
-      unregisterJobAbort(jobId);
-      clearSharedPending(jobId);
-    }
-  })();
+  // Fire-and-forget: the shared pipeline writes the image, the row and the
+  // broadcasts. Deliberately not awaited — the client polls or streams the job.
+  void runGenerationJob({
+    jobId,
+    imageId,
+    userId,
+    username,
+    prompt: prompt as string,
+    model: selectedModel,
+    aspectRatio: (aspectRatio as string) ?? "Auto",
+    selectedAspectRatio: (selectedAspectRatio ?? aspectRatio ?? "Auto") as string,
+    quality: quality as string | undefined,
+    searchGrounding: searchGrounding as boolean | undefined,
+    workspaceId: typeof workspaceId === "string" ? workspaceId : null,
+    referenceImages: validatedRefImages,
+    isShared: isShared === true,
+    sa,
+    cancelSignal: genController.signal,
+  });
 
   return NextResponse.json({ jobId });
 }

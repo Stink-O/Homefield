@@ -21,7 +21,21 @@ import { MCP_SERVER_INFO, buildInstructions, registerAgentServer } from "@/lib/m
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Reference uploads are capped at ~10 MB of base64 each and 14 per call, but
+// those limits are enforced by zod AFTER the body has been read. Without a
+// ceiling here an authenticated caller can make the server buffer well over a
+// hundred megabytes per request. Generous enough for a full 14-image call.
+const MAX_BODY_BYTES = 160 * 1024 * 1024;
+
 async function handle(request: Request): Promise<Response> {
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return new Response(
+      JSON.stringify({ error: "Request body too large.", reason: "invalid_input" }),
+      { status: 413, headers: { "content-type": "application/json" } },
+    );
+  }
+
   const principal = await requireAgentKey(request);
   if (isDenial(principal)) return agentDenialResponse(principal);
 

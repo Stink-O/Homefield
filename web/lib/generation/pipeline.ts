@@ -10,8 +10,9 @@
 // has been registered.
 
 import { ServiceAccount } from "@/lib/vertexAuth";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { images } from "@/lib/db/schema";
+import { images, workspaces } from "@/lib/db/schema";
 import { saveImageFile, saveReferenceImages, deleteImageFile, deleteReferenceImages } from "@/lib/fileStorage";
 import { resolveJob, failJob, unregisterJobAbort } from "@/lib/jobs";
 import { broadcastShared, broadcastSharedPendingEnd } from "@/lib/sharedBroadcast";
@@ -134,8 +135,23 @@ export async function runGenerationJob(params: GenerationJobParams): Promise<voi
       const thumbnailUrl = `/api/files/${thumbnailPath}`;
       const timestamp = Date.now();
 
-      // workspaceId ownership was validated in the synchronous handler before generation started.
-      const resolvedWorkspaceId: string | null = (!isShared && typeof workspaceId === "string") ? workspaceId : null;
+      // Ownership was validated before generation started, but a workspace can
+      // be deleted while a generation is in flight. The foreign key would then
+      // reject the insert, and the rollback below would delete the file — so
+      // the API call was paid for and the image thrown away. Re-check instead
+      // and fall back to the main library: the picture already cost money, and
+      // an agent one still carries its badge, so it stays identifiable.
+      let resolvedWorkspaceId: string | null = (!isShared && typeof workspaceId === "string") ? workspaceId : null;
+      if (resolvedWorkspaceId) {
+        const stillThere = await db.query.workspaces.findFirst({
+          columns: { id: true },
+          where: eq(workspaces.id, resolvedWorkspaceId),
+        });
+        if (!stillThere) {
+          console.warn(`[HomeField] ${jobId.slice(0, 8)} workspace ${resolvedWorkspaceId} was deleted mid-generation; saving to the main library instead`);
+          resolvedWorkspaceId = null;
+        }
+      }
 
       // Persist to database — if this fails, clean up saved files to prevent orphans on disk
       try {

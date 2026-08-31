@@ -197,6 +197,11 @@ export function registerImageTools(server: McpServer, principal: AgentPrincipal)
           height: source.height,
           thumbnailUrl: source.thumbnailPath ? `/api/files/${source.thumbnailPath}` : "",
           timestamp,
+          // Matches app/api/images/[id]/share: without these, live viewers of
+          // the shared feed see no reference thumbnails until they refresh.
+          referenceImageDataUrls: source.referenceImagePaths
+            ? (() => { try { return (JSON.parse(source.referenceImagePaths) as string[]).map((p) => `/api/files/${p}`); } catch { return undefined; } })()
+            : undefined,
         });
 
         return toolJson({ shared_image_id: sharedId, source_image_id: source.id });

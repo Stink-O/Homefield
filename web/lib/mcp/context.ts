@@ -146,7 +146,10 @@ export async function resolveWorkspaceFilter(
   requested: string | null | undefined,
 ): Promise<string | null | undefined> {
   if (principal.destinationMode !== "any") {
-    if (requested !== undefined && requested !== null && requested !== MAIN_WORKSPACE && requested !== principal.defaultWorkspaceId) {
+    // "main" is refused rather than quietly reinterpreted as this key's own
+    // workspace: the write path refuses it, and a read that silently returns
+    // something other than what was asked for is worse than an error.
+    if (requested !== undefined && requested !== null && requested !== principal.defaultWorkspaceId) {
       throw new AgentToolError(
         "workspace_forbidden",
         `This API key can only read ${principal.defaultWorkspaceId ? `workspace ${principal.defaultWorkspaceId}` : "the Main library"}.`,

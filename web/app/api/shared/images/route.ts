@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { images, users } from "@/lib/db/schema";
-import { eq, lt, desc } from "drizzle-orm";
+import { eq, lt, desc, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/authHelpers";
 
 export async function GET(req: NextRequest) {
@@ -34,8 +34,11 @@ export async function GET(req: NextRequest) {
     .from(images)
     .innerJoin(users, eq(images.userId, users.id))
     .where(
+      // Both conditions must be combined with and() — a JS && here returns only
+      // the right-hand operand, silently dropping the isShared filter and
+      // exposing every user's private images on any paginated request.
       cursor !== undefined
-        ? eq(images.isShared, true) && lt(images.timestamp, cursor)
+        ? and(eq(images.isShared, true), lt(images.timestamp, cursor))
         : eq(images.isShared, true)
     )
     .orderBy(desc(images.timestamp))

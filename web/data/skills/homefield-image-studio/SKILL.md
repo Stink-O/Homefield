@@ -112,15 +112,30 @@ Keys carry a daily image limit — 50 by default. `get_generation_status` report
 - `cancel_generation` exists. Use it if you realise mid-batch that you asked for
   the wrong thing.
 
-## Reading images back
+## Getting an image out
 
-Tools return a small preview inline — enough to judge composition, colour and
-whether the subject is right.
+There are two ways to reach an image, for two different jobs. Picking the wrong
+one is the most expensive mistake available to you here.
 
-Read the `homefield://image/{id}` resource **only** when you genuinely need the
-original pixels. A 4K PNG is tens of megabytes; pulling one to check whether an
-image looks correct wastes most of your context on something the preview already
-answered.
+**To put the file somewhere** — a project's `assets/` folder, a working
+directory, anywhere on disk — use the `download_url` that `get_image` and
+`get_generation_status` return:
+
+```bash
+curl -fsSL -o assets/hero.png "<download_url>"
+```
+
+It carries its own credential, so it needs no auth header, and the bytes go
+straight from the server to the file without passing through your context. It
+covers one image and expires in about ten minutes; if it lapses, call
+`get_image` again for a fresh one. This is how you use an image you generated in
+something you are building.
+
+**To look at the pixels yourself**, read the `homefield://image/{id}` resource.
+That returns the image into your context, which is occasionally what you want
+and usually not: tool results already include a small preview, and a 4K PNG is
+tens of megabytes. Do not read the resource to check whether an image came out
+right. The preview already answered that.
 
 `list_images` pages with a cursor. Pass `next_cursor` back as `before` to
 continue; a null `next_cursor` means you have reached the end.

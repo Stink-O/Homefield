@@ -25,7 +25,12 @@ export const authConfig: NextAuthConfig = {
         // outright — see lib/agent/auth.ts. Without this exemption the
         // middleware answers every bearer request with a 302 to /login and
         // MCP clients report an opaque connection failure with no clue why.
-        path === "/api/mcp"
+        path === "/api/mcp" ||
+        // Agent download links carry their own signed, expiring credential in
+        // the query string rather than a cookie, and verify it themselves.
+        // Same reasoning as above: without the exemption curl silently saves
+        // the login page as a .png instead of failing usefully.
+        path.startsWith("/api/agent/")
       ) {
         return true;
       }

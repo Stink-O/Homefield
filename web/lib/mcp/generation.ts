@@ -9,6 +9,7 @@
 // generate_image with reference_image_ids pointing at it.
 
 import { z } from "zod";
+import { downloadUrlFor } from "@/lib/agent/downloadToken";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { abortJob, failJob, getJobForUser } from "@/lib/jobs";
 import { clearSharedPending } from "@/lib/sharedPending";
@@ -82,7 +83,7 @@ function defaultQuality(principal: AgentPrincipal, model: ModelId): Quality {
   return allowed.reduce((best, q) => (QUALITY_RANK[q] > QUALITY_RANK[best] ? q : best), allowed[0]);
 }
 
-export function registerGenerationTools(server: McpServer, principal: AgentPrincipal): void {
+export function registerGenerationTools(server: McpServer, principal: AgentPrincipal, origin: string): void {
   server.registerTool(
     "generate_image",
     {
@@ -263,7 +264,11 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
         const preview = await renderPreview(row.thumbnailPath ?? row.filePath);
         return {
           content: [
-            { type: "text" as const, text: JSON.stringify({ job_id: args.job_id, status: "done", image: imageSummary(row) }, null, 2) },
+            { type: "text" as const, text: JSON.stringify({
+              job_id: args.job_id,
+              status: "done",
+              image: { ...imageSummary(row), download_url: downloadUrlFor(origin, row.id, principal.keyId) },
+            }, null, 2) },
             ...(preview ? [{ type: "image" as const, data: preview.base64, mimeType: preview.mimeType }] : []),
             {
               type: "resource_link" as const,

@@ -7,6 +7,7 @@
 // account's library.
 
 import { z } from "zod";
+import { downloadUrlFor } from "@/lib/agent/downloadToken";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
 import crypto from "crypto";
@@ -36,7 +37,7 @@ import { renderPreview } from "@/lib/mcp/preview";
 
 const MAX_PAGE = 50;
 
-export function registerImageTools(server: McpServer, principal: AgentPrincipal): void {
+export function registerImageTools(server: McpServer, principal: AgentPrincipal, origin: string): void {
   const scoped = principal.destinationMode === "any";
 
   server.registerTool(
@@ -109,7 +110,9 @@ export function registerImageTools(server: McpServer, principal: AgentPrincipal)
     {
       title: "Get an image",
       description:
-        "Returns one image's metadata plus a small inline preview so you can see it. The full-resolution file is available as the linked homefield://image/{id} resource — read that only when you actually need the original pixels.",
+        "Returns one image's metadata, a small inline preview so you can see it, and a download_url. " +
+        "To SAVE the image to a file, download the URL with a shell command such as `curl -fsSL -o path/to/name.png \"<download_url>\"` — it needs no auth header and expires in about 10 minutes. " +
+        "Read the linked homefield://image/{id} resource only when you need the pixels inside your own context rather than on disk.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: z.object({ image_id: imageIdSchema }),
     },
@@ -117,9 +120,13 @@ export function registerImageTools(server: McpServer, principal: AgentPrincipal)
       runTool(async () => {
         const row = await requireAccessibleImage(principal, args.image_id);
         const preview = await renderPreview(row.thumbnailPath ?? row.filePath);
+        const summary = {
+          ...imageSummary(row),
+          download_url: downloadUrlFor(origin, row.id, principal.keyId),
+        };
         return {
           content: [
-            { type: "text" as const, text: JSON.stringify(imageSummary(row), null, 2) },
+            { type: "text" as const, text: JSON.stringify(summary, null, 2) },
             ...(preview ? [{ type: "image" as const, data: preview.base64, mimeType: preview.mimeType }] : []),
             {
               type: "resource_link" as const,

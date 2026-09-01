@@ -16,6 +16,7 @@ import { createMcpHandler } from "mcp-handler";
 import { agentDenialResponse, requireAgentKey } from "@/lib/agent/auth";
 import { isDenial } from "@/lib/agent/contract";
 import { MCP_SERVER_INFO, buildInstructions, registerAgentServer } from "@/lib/mcp/server";
+import { originFromRequest } from "@/lib/agent/downloadToken";
 
 // better-sqlite3 and sharp are native modules — this route cannot run on Edge.
 export const runtime = "nodejs";
@@ -43,7 +44,7 @@ async function handle(request: Request): Promise<Response> {
   // only write to one workspace is never offered move_image or
   // create_workspace. See lib/mcp/server.ts.
   const handler = createMcpHandler(
-    (server) => registerAgentServer(server, principal),
+    (server) => registerAgentServer(server, principal, originFromRequest(request)),
     {
       serverInfo: MCP_SERVER_INFO,
       instructions: buildInstructions(principal),

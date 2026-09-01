@@ -73,7 +73,7 @@ export default function AgentKeyList({
           key={key.id}
           className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white/[0.03] p-3"
         >
-          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-400/12">
+          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent/12">
             <Bot size={15} className={AGENT_TEXT} />
           </span>
           <div className="min-w-0 flex-1">

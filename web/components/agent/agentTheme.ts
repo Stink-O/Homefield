@@ -1,31 +1,32 @@
 import type { ImageOrigin } from "@/lib/types";
 
 /**
- * Violet is the semantic colour of agent provenance across the whole app.
- * The lime `--accent` means "you did this"; violet means "something acting on
- * your behalf did". Defined once here so the card badge, the lightbox row, the
- * gallery filter and the setup flow can never drift apart.
+ * Agent provenance uses the app's own accent rather than a colour of its own.
  *
- * The tints follow the same shape the app already uses for its amber "shared"
- * chips (mid-tone colour + /12 fill + /25 border), so they read correctly in
- * both the dark and the light theme without a second palette.
+ * An earlier version introduced violet to mean "an agent did this". It read as
+ * foreign: the app is built on one lime accent plus amber for the shared space,
+ * and a third hue looked like it belonged to a different product. The label
+ * already says which agent made the image, so the colour never had to carry
+ * that meaning on its own.
+ *
+ * Defined once here so the card badge, the lightbox row, the gallery filter and
+ * the setup flow cannot drift apart.
  */
-export const AGENT_ACCENT_HEX = "#a78bfa"; // violet-400
 
 /** Text-only accent, for labels and icons on app surfaces. */
-export const AGENT_TEXT = "text-violet-400";
+export const AGENT_TEXT = "text-accent";
 
-/** Tinted pill on an app surface (settings, lightbox panels). */
-export const AGENT_CHIP = "bg-violet-400/12 border border-violet-400/25 text-violet-400";
+/** Tinted pill on an app surface, matching the amber shared-space chip's shape. */
+export const AGENT_CHIP = "bg-accent/12 border border-accent/25 text-accent";
 
-/** Tinted pill sitting on an image, where the ground is always dark. */
-export const AGENT_CHIP_ON_IMAGE = "bg-violet-500/40 text-violet-50 backdrop-blur-sm";
+/** Pill sitting on an image. Matches the model chip already on the card. */
+export const AGENT_CHIP_ON_IMAGE = "bg-black/40 text-white/70 backdrop-blur-sm";
 
-/** Filled control — the setup flow's primary action. */
-export const AGENT_BUTTON = "bg-violet-500 text-white hover:bg-violet-400 disabled:opacity-40";
+/** Filled control: the app's primary button. */
+export const AGENT_BUTTON = "bg-accent text-black font-semibold hover:bg-accent-hover disabled:opacity-40";
 
-/** Chosen state for options inside the setup flow. */
-export const AGENT_SELECTED = "bg-violet-400/15 border-violet-400/40 text-violet-300";
+/** Chosen state for options, matching the theme picker in Settings. */
+export const AGENT_SELECTED = "bg-accent/20 border-accent/30 text-accent";
 
 /** Unchosen state for those same options. */
 export const AGENT_UNSELECTED =

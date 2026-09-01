@@ -40,8 +40,8 @@ export function StepCreate({
         <div className="space-y-4">
           <CopyBlock value={token} label="Agent key" />
           <Callout tone="warn">
-            This is the only time the key is shown. It is stored as a hash, so nobody — including this
-            instance — can display it again. If you lose it, revoke the key and create another.
+            This is the only time the key is shown. It is stored as a hash, so nobody can display it
+            again, not even this instance. If you lose it, revoke the key and create another.
           </Callout>
         </div>
       </>
@@ -86,7 +86,7 @@ export function StepConnect({ token, origin }: { token: string; origin: string }
             type="button"
             onClick={() => setClient(c)}
             className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              client === c ? `bg-violet-400/15 ${AGENT_TEXT}` : "text-text-secondary/60 hover:text-text-secondary"
+              client === c ? `bg-accent/15 ${AGENT_TEXT}` : "text-text-secondary/60 hover:text-text-secondary"
             }`}
           >
             {c}
@@ -118,8 +118,8 @@ export function StepConnect({ token, origin }: { token: string; origin: string }
         <div className="space-y-4">
           <Callout tone="warn">
             Claude Desktop and claude.ai refuse <code className="font-mono">localhost</code> and LAN
-            addresses — a remote MCP server must be a public HTTPS URL. A HomeField running at home
-            cannot be added directly.
+            addresses. A remote MCP server has to be a public HTTPS URL, so a HomeField running at
+            home cannot be added directly.
           </Callout>
           <p className="text-xs text-text-secondary/60 leading-relaxed">
             The way around it is <code className="font-mono text-text-secondary">npx mcp-remote</code>,
@@ -205,7 +205,7 @@ export function StepConfirm({
       <div className="rounded-xl border border-[var(--border)] bg-white/[0.03] p-4">
         <div className="flex items-center gap-3">
           {connected ? (
-            <CheckCircle2 size={18} className="flex-shrink-0 text-violet-400" />
+            <CheckCircle2 size={18} className="flex-shrink-0 text-accent" />
           ) : (
             <Loader2 size={18} className="flex-shrink-0 animate-spin text-text-secondary/50" />
           )}
@@ -238,7 +238,7 @@ export function StepConfirm({
           {limit ? (
             <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--border)]">
               <div
-                className="h-full rounded-full bg-violet-400 transition-[width] duration-300"
+                className="h-full rounded-full bg-accent transition-[width] duration-300"
                 style={{ width: `${Math.min(100, Math.round((used / limit) * 100))}%` }}
               />
             </div>

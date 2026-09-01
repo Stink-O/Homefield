@@ -22,7 +22,7 @@ export default function AgentAccessCard({ onOpen }: { onOpen: () => void }) {
 
   return (
     <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] p-3 border border-[var(--border)]">
-      <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${connected ? "bg-violet-400/12" : "bg-[var(--border)]"}`}>
+      <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${connected ? "bg-accent/12" : "bg-[var(--border)]"}`}>
         <Bot size={15} className={connected ? AGENT_TEXT : "text-text-secondary"} />
       </span>
       <div className="min-w-0 flex-1">

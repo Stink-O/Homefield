@@ -74,7 +74,7 @@ export function StepDestination({
                 onClick={() => onChange({ pinnedWorkspaceId: ws.id })}
                 className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
                   draft.pinnedWorkspaceId === ws.id
-                    ? "border-violet-400/40 bg-violet-400/15 text-violet-300"
+                    ? "border-accent/40 bg-accent/15 text-accent"
                     : "border-transparent bg-[var(--border)] text-text-secondary hover:text-text-primary"
                 }`}
               >
@@ -130,7 +130,7 @@ export function StepScopes({ draft, onChange }: StepProps) {
     <>
       <StepHeading
         title="What it may do"
-        description="Anything left unticked is refused at the door, whatever the agent asks for. Start with the least you need — you can mint a second key later."
+        description="Anything left unticked is refused at the door, whatever the agent asks for. Start with the least you need. You can always mint a second key later."
       />
       <div className="space-y-2">
         {ALL_AGENT_SCOPES.map((scope) => (
@@ -186,7 +186,7 @@ export function StepLimits({ draft, onChange }: StepProps) {
                 onClick={() => onChange({ dailyImageLimit: n })}
                 className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
                   draft.dailyImageLimit === n
-                    ? "border-violet-400/40 bg-violet-400/15 text-violet-300"
+                    ? "border-accent/40 bg-accent/15 text-accent"
                     : "border-transparent bg-[var(--border)] text-text-secondary hover:text-text-primary"
                 }`}
               >
@@ -199,7 +199,7 @@ export function StepLimits({ draft, onChange }: StepProps) {
               max={10_000}
               value={draft.dailyImageLimit}
               onChange={(e) => onChange({ dailyImageLimit: Math.max(1, Math.min(10_000, Number(e.target.value) || 1)) })}
-              className="w-24 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-sm text-text-primary outline-none focus:border-violet-400/50"
+              className="w-24 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/50"
             />
           </div>
           <p className="mt-2 text-xs text-text-secondary/50">Counted per UTC day and reset at midnight UTC.</p>

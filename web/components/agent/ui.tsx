@@ -34,14 +34,14 @@ export function TextField({
         maxLength={maxLength}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2.5 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary/40 focus:border-violet-400/50"
+        className="mt-2 w-full rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2.5 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary/40 focus:border-accent/50"
       />
       {hint && <span className="mt-2 block text-xs text-text-secondary/50">{hint}</span>}
     </label>
   );
 }
 
-/** A radio-style card. One of a set; the chosen one carries the violet tint. */
+/** A radio-style card. One of a set; the chosen one carries the accent tint. */
 export function OptionCard({
   selected, onClick, title, description, children,
 }: {
@@ -58,7 +58,7 @@ export function OptionCard({
       <button type="button" onClick={onClick} className="flex w-full items-start gap-3 text-left">
         <span
           className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${
-            selected ? "border-violet-400 bg-violet-400" : "border-[var(--chrome-border-strong)]"
+            selected ? "border-accent bg-accent" : "border-[var(--chrome-border-strong)]"
           }`}
         >
           {selected && <span className="h-1.5 w-1.5 rounded-full bg-black" />}
@@ -93,7 +93,7 @@ export function CheckOption({
     >
       <span
         className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${
-          checked ? "border-violet-400 bg-violet-400" : "border-[var(--chrome-border-strong)]"
+          checked ? "border-accent bg-accent" : "border-[var(--chrome-border-strong)]"
         }`}
       >
         {checked && <Check size={11} className="text-black" strokeWidth={3} />}
@@ -161,7 +161,7 @@ export function CopyBlock({ value, label }: { value: string; label?: string }) {
           type="button"
           onClick={handleCopy}
           className={`flex flex-shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-colors ${
-            copied ? `bg-violet-400/15 ${AGENT_TEXT}` : "bg-[var(--border)] text-text-secondary hover:text-text-primary"
+            copied ? `bg-accent/15 ${AGENT_TEXT}` : "bg-[var(--border)] text-text-secondary hover:text-text-primary"
           }`}
         >
           {copied ? <Check size={11} /> : <Copy size={11} />}

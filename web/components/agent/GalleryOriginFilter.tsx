@@ -25,7 +25,7 @@ export default function GalleryOriginFilter() {
         {OPTIONS.map(({ id, label, Icon }) => {
           const active = state.originFilter === id;
           const activeClass = id === "agent"
-            ? "bg-violet-400/15 text-violet-400 border border-violet-400/30"
+            ? "bg-accent/15 text-accent border border-accent/30"
             : "bg-accent/20 text-accent border border-accent/30";
           return (
             <button

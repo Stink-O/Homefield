@@ -162,7 +162,7 @@ export default function AgentSetupFlow({ onClose }: { onClose: () => void }) {
             <span
               key={i}
               className={`h-0.5 flex-1 rounded-full transition-colors ${
-                i < step ? "bg-violet-400" : "bg-[var(--border)]"
+                i < step ? "bg-accent" : "bg-[var(--border)]"
               }`}
             />
           ))}

@@ -18,7 +18,7 @@ const OPTIONS: { id: OriginFilter; label: string; hint: string }[] = [
  * It renders only once agent-made images actually exist in view, or while a
  * filter is active, so an instance that never uses agent access never grows a
  * control it cannot use — and no extra request is needed to decide that.
- * When a filter IS active the chip goes violet and names it: a filtered gallery
+ * When a filter IS active the chip takes the accent and names it: a filtered gallery
  * that looks unfiltered reads as missing images.
  */
 export default function OriginFilterChip() {

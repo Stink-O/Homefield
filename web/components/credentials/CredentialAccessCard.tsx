@@ -63,7 +63,7 @@ function ownView(status: OwnCredentialStatus): CardView {
     title: "Using the instance key",
     subtitle: status.canGenerate
       ? "Generations are billed to this instance's Google project"
-      : "No instance key is connected yet — ask an administrator",
+      : "No instance key is connected yet. Ask an administrator.",
     action: "View",
   };
 }

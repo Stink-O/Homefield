@@ -76,7 +76,7 @@ export function tierChangeEffect(
   return hasOwnKey
     ? {
         severity: "info",
-        text: `${username} may fall back to the instance key — but their own key is still on file and takes priority while it is there.`,
+        text: `${username} may fall back to the instance key, but their own key is still on file and takes priority while it is there.`,
       }
     : { severity: "info", text: `${username}'s generations will bill to this instance's Google project.` };
 }

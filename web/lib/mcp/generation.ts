@@ -21,7 +21,7 @@ import {
   qualityWithinLimit,
   type AgentPrincipal,
 } from "@/lib/agent/contract";
-import { incrementDailyUsage } from "@/lib/agent/keys";
+import { getDailyUsage, incrementDailyUsage } from "@/lib/agent/keys";
 import { MODEL_QUALITIES, type AspectRatio, type ModelId, type Quality } from "@/lib/types";
 import {
   AgentToolError,
@@ -268,6 +268,11 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
               job_id: args.job_id,
               status: "done",
               image: { ...imageSummary(row), download_url: downloadUrlFor(origin, row.id, principal.keyId) },
+              // Read live rather than from the principal, which is a snapshot
+              // taken at authentication. An agent decides whether to keep going
+              // at the poll, so this is where the number has to be current.
+              used_today: await getDailyUsage(principal.keyId, Date.now()),
+              daily_limit: principal.limits.dailyImageLimit,
             }, null, 2) },
             ...(preview ? [{ type: "image" as const, data: preview.base64, mimeType: preview.mimeType }] : []),
             {

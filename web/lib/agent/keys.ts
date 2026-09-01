@@ -9,6 +9,8 @@
 import crypto from "crypto";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { abortJob, failJob } from "@/lib/jobs";
+import { forgetAgentJob, liveJobsForKey } from "@/lib/mcp/jobRegistry";
 import { apiKeys, apiKeyUsage, workspaces } from "@/lib/db/schema";
 import {
   AGENT_KEY_BYTES,
@@ -277,6 +279,15 @@ export async function revokeAgentKey(userId: string, keyId: string): Promise<boo
   await db.update(apiKeys)
     .set({ revokedAt: Date.now() })
     .where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, userId)));
+
+  // Stop what is already running. Marking the key revoked only refuses the
+  // NEXT call; a queued batch would otherwise finish and bill the owner after
+  // they had pulled the plug, which is not what the word promises.
+  for (const jobId of liveJobsForKey(keyId)) {
+    abortJob(jobId);
+    failJob(jobId, "The API key that started this generation was revoked.");
+    forgetAgentJob(jobId);
+  }
   return true;
 }
 

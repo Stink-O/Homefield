@@ -55,3 +55,18 @@ export function lookupAgentJob(jobId: string, keyId: string, userId: string): Ag
 export function forgetAgentJob(jobId: string): void {
   agentJobs.delete(jobId);
 }
+
+/**
+ * Every job this key still has in flight.
+ *
+ * Used when a key is revoked. "Revoke" has to mean the agent stops, not merely
+ * that its next call is refused — a queued batch would otherwise run to
+ * completion and bill the owner after they had already pulled the plug.
+ */
+export function liveJobsForKey(keyId: string): string[] {
+  const out: string[] = [];
+  for (const [jobId, owner] of agentJobs) {
+    if (owner.keyId === keyId) out.push(jobId);
+  }
+  return out;
+}

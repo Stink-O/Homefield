@@ -137,6 +137,30 @@ and usually not: tool results already include a small preview, and a 4K PNG is
 tens of megabytes. Do not read the resource to check whether an image came out
 right. The preview already answered that.
 
+**To show the image in the chat itself** — when the person asks to see it, not
+just to have it in their library — and you are running in Claude Code with a
+`SendUserFile` tool: the preview in the tool result is yours, not theirs. Fetch
+the file with the `download_url` into your scratchpad directory (not the
+project), then hand it over with `SendUserFile` and `display: "render"` so it
+appears inline:
+
+```bash
+curl -fsSL -o "$SCRATCHPAD/golden-retriever.png" "<download_url>"
+```
+
+Send each image once, after its generation is done. Do not read the
+`homefield://image/{id}` resource for this — that puts the pixels in your
+context, which is not where they need to go. Other clients have no equivalent
+tool; there, point the person at their library instead.
+
+Asking once is asking for the session. Once the person has asked to see an
+image in the chat, show every image you finish for the rest of that
+conversation the same way, without waiting to be asked again — including
+refinements and later, unrelated requests. Stop only if they say they no longer
+want them inline. When you are iterating through several candidates, send each
+one as it lands; the point of showing them is that the person can react and
+redirect before you spend on the next.
+
 `list_images` pages with a cursor. Pass `next_cursor` back as `before` to
 continue; a null `next_cursor` means you have reached the end.
 

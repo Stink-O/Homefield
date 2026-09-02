@@ -69,6 +69,7 @@ https://github.com/user-attachments/assets/69a89fee-0e56-4357-b8da-cdcc0def27c2
 - **Per-agent workspaces** so agent output never lands in your own
 - **Scoped API keys** with spend ceilings, an expiry, and one-click revocation
 - **Visible provenance:** every agent-made image is badged and fully inspectable
+- **Bundled skill** that teaches the agent to spend carefully, iterate by reference, and show its results in the chat
 
 ### Collaboration
 
@@ -307,6 +308,14 @@ It separates an unreachable server from a rejected key, lists the tools the key 
 Editing is `generate_image` with `reference_image_ids` — there is no separate edit tool. Tools return a small preview inline plus a link to the full-resolution file, so a 4K image never floods the agent's context.
 
 New keys get the `generate` scope only. Deleting and publishing must be granted deliberately, and a key can also be capped to a maximum model, a maximum resolution, and a daily image budget.
+
+### Getting images out
+
+Every finished image comes with a `download_url`: a short-lived signed link that fetches the full-resolution file with no auth header, so an agent can drop it into a project's assets folder with a single `curl`. The link covers one image and expires after about ten minutes.
+
+In **Claude Code**, ask to see an image and the agent will download it and post it straight into the chat. Once you have asked, it keeps doing so for every image it makes in that session, including refinements, so you can react and redirect before it spends on the next one. Say you no longer want them inline to turn it off.
+
+The server ships a skill (`skill://homefield-image-studio/SKILL.md`) that teaches all of this, along with how to choose a model and resolution, how to iterate by reference, and how to stay inside the key's workspace and budget. Clients that support the MCP skills extension pick it up on connect; the server's instructions point everything else at it.
 
 ### Whose credit gets spent
 

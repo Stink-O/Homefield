@@ -25,6 +25,10 @@ export const authConfig: NextAuthConfig = {
         // outright — see lib/agent/auth.ts. Without this exemption the
         // middleware answers every bearer request with a 302 to /login and
         // MCP clients report an opaque connection failure with no clue why.
+        //
+        // middleware.ts also excludes this path (and /api/agent/) from its
+        // matcher, so normally this branch is never reached. It stays as the
+        // backstop for the day someone widens that matcher.
         path === "/api/mcp" ||
         // Agent download links carry their own signed, expiring credential in
         // the query string rather than a cookie, and verify it themselves.

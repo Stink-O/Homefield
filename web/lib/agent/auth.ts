@@ -183,8 +183,11 @@ export async function requireAgentKey(request: Request): Promise<AgentAuthResult
  * Confirms the pinned workspace still exists and still belongs to the key's
  * owner. The foreign key nulls this column when a workspace is deleted, but a
  * principal is a security boundary — it re-checks rather than assuming.
+ *
+ * Shared with the agent download route, which rebuilds a principal from the
+ * key row and must reach the same answer this function gives here.
  */
-async function resolveDefaultWorkspace(userId: string, workspaceId: string | null): Promise<string | null> {
+export async function resolveDefaultWorkspace(userId: string, workspaceId: string | null): Promise<string | null> {
   if (!workspaceId) return null;
   const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
   if (!ws || ws.userId !== userId) return null;

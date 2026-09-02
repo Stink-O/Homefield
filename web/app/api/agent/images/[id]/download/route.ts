@@ -25,6 +25,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { apiKeys, users } from "@/lib/db/schema";
 import { verifyDownloadGrant } from "@/lib/agent/downloadToken";
+import { resolveDefaultWorkspace } from "@/lib/agent/auth";
 import { requireAccessibleImage } from "@/lib/mcp/context";
 import { resolveStoragePath } from "@/lib/mcp/preview";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -74,6 +75,16 @@ export async function GET(
     );
   }
 
+  // The destination is resolved exactly as requireAgentKey resolves it, and a
+  // confined key whose workspace has gone is refused rather than widened: with
+  // a null destination the workspace guard below would read "Main", and a
+  // signed URL minted minutes ago would start serving from the owner's own
+  // library. Unlike the MCP path this never re-mints an "own" workspace — a
+  // GET must not create rows; the key's next tool call does that and hands
+  // the agent a fresh URL.
+  const defaultWorkspaceId = await resolveDefaultWorkspace(key.userId, key.defaultWorkspaceId);
+  if (key.destinationMode !== "any" && !defaultWorkspaceId) return refuse();
+
   // The same ownership and workspace check the MCP tools apply, so a signed URL
   // can never widen what the key could reach.
   const principal: AgentPrincipal = {
@@ -83,7 +94,7 @@ export async function GET(
     label: key.name,
     scopes: parseScopes(key.scopes) as AgentScope[],
     destinationMode: key.destinationMode as DestinationMode,
-    defaultWorkspaceId: key.defaultWorkspaceId,
+    defaultWorkspaceId,
     limits: { maxQuality: null, maxModel: null, dailyImageLimit: null },
     usedToday: 0,
   };

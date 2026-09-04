@@ -114,7 +114,9 @@ export function registerGenerationTools(server: McpServer, principal: AgentPrinc
           .array(referenceUploadSchema)
           .max(MAX_REFERENCE_IMAGES)
           .optional()
-          .describe(`Raw images to upload as references. Counts towards the same limit of ${MAX_REFERENCE_IMAGES}.`),
+          .describe(
+            `Inline base64 references, only for bytes you already hold in context. For a file on disk use create_upload_url and pass the resulting id in reference_image_ids instead — inlining a file, even a small one, tends to fail partway through. Counts towards the same limit of ${MAX_REFERENCE_IMAGES}.`,
+          ),
       }),
     },
     async (args) =>

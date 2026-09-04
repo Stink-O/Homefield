@@ -26,7 +26,7 @@ export const apiKeys = sqliteTable("api_keys", {
   name: text("name").notNull(),
   keyHash: text("key_hash").notNull().unique(),
   prefix: text("prefix").notNull(),
-  // JSON array of scope strings: "generate" | "delete" | "publish" | "templates"
+  // JSON array of scope strings: "generate" | "upload" | "delete" | "publish" | "templates"
   scopes: text("scopes").notNull().default('["generate"]'),
   destinationMode: text("destination_mode", { enum: ["own", "pinned", "any"] })
     .notNull().default("own"),

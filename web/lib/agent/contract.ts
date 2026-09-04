@@ -7,10 +7,16 @@
 
 import type { ModelId, Quality } from "@/lib/types";
 
-/** What an agent key is permitted to do. Keys default to "generate" alone. */
-export type AgentScope = "generate" | "delete" | "publish" | "templates";
+/**
+ * What an agent key is permitted to do. Keys default to "generate" alone.
+ *
+ * "upload" (added after the first keys were minted) lets a key put image files
+ * into its destination through a signed upload URL. It is off unless granted:
+ * parseScopes() keeps only what a key's row lists, so no existing key gains it.
+ */
+export type AgentScope = "generate" | "upload" | "delete" | "publish" | "templates";
 
-export const ALL_AGENT_SCOPES: AgentScope[] = ["generate", "delete", "publish", "templates"];
+export const ALL_AGENT_SCOPES: AgentScope[] = ["generate", "upload", "delete", "publish", "templates"];
 export const DEFAULT_AGENT_SCOPES: AgentScope[] = ["generate"];
 
 /**

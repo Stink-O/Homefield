@@ -164,6 +164,34 @@ redirect before you spend on the next.
 `list_images` pages with a cursor. Pass `next_cursor` back as `before` to
 continue; a null `next_cursor` means you have reached the end.
 
+## Getting an image in
+
+Two ways to hand `generate_image` a reference, and the source decides which.
+
+**An image already in the library** — something you generated, or something the
+owner put there — goes in `reference_image_ids`. Always. It is a 36-character id
+and the server downsamples for you.
+
+**A file on disk** — a screenshot, a cropped region, a photo in the project —
+goes through `create_upload_url`. It returns a signed URL and the `image_id` the
+file will occupy; upload with the curl command in the result, then use that id:
+
+```bash
+curl -fsS -F "file=@crop.webp" "<upload_url>"
+```
+
+No auth header. The URL covers one image, can be used once, expires in about ten
+minutes, and stops working if the key is revoked. JPEG, PNG and WebP up to
+20 MB; the bytes are checked, not the extension. Uploads do not count against
+the daily generation budget, and the image lands in the key's workspace like
+anything else it creates. The tool needs the `upload` scope; if the key does not
+hold it, say so rather than working around it.
+
+**`reference_images` (inline base64) is only for bytes you already hold in your
+context.** Do not read a file in order to inline it. Emitting even a 10 KB image
+as base64 inside a tool call fails partway through — the limit is your own
+output, so retrying does not help. If the bytes are on disk, upload them.
+
 ## Destructive actions
 
 `delete_image` is permanent, and `publish_image` puts an image on a feed every

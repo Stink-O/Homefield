@@ -12,6 +12,7 @@ import type { AgentPrincipal } from "@/lib/agent/contract";
 import { registerGenerationTools } from "@/lib/mcp/generation";
 import { registerImageTools } from "@/lib/mcp/images";
 import { registerTemplateTools } from "@/lib/mcp/templates";
+import { registerUploadTools } from "@/lib/mcp/uploads";
 import { registerWorkspaceTools } from "@/lib/mcp/workspaces";
 import { registerImageResource } from "@/lib/mcp/resources";
 import { registerSkillResources } from "@/lib/mcp/skills";
@@ -33,6 +34,7 @@ export function buildInstructions(principal: AgentPrincipal): string {
     `Images cost the owner real money per generation. Explore at gemini-3.1-flash-image and 1K, then re-render the chosen one at higher quality — do not generate candidates at Pro/4K to discard them.`,
     `Write prompts yourself from the request in context. search_templates is a structural reference for how prompts for these models are built — not a source of prompts to reuse, and not the owner's own saved templates.`,
     `There is no edit tool: refine by calling generate_image again with reference_image_ids pointing at the previous result.`,
+    `Two ways to give generate_image a reference, for two different sources. For a file on disk — a screenshot, a crop, anything not already in the library — call create_upload_url, run the curl command it returns to upload the file (no auth header; single use; expires in about 10 minutes), then pass the returned image_id in reference_image_ids. reference_images (inline base64) is only for bytes you already hold in your context; never read a file just to inline it, because emitting even a few kilobytes of base64 inside a tool call is enough to break the call. create_upload_url needs the "upload" scope.`,
     `Fuller guidance ships with this server — read skill://index.json, then skill://homefield-image-studio/SKILL.md.`,
   ].join("\n");
 }
@@ -40,6 +42,7 @@ export function buildInstructions(principal: AgentPrincipal): string {
 export function registerAgentServer(server: McpServer, principal: AgentPrincipal, origin: string): void {
   registerGenerationTools(server, principal, origin);
   registerImageTools(server, principal, origin);
+  registerUploadTools(server, principal, origin);
   registerWorkspaceTools(server, principal);
   registerTemplateTools(server, principal);
   registerImageResource(server, principal);

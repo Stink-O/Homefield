@@ -100,6 +100,10 @@ const SCOPE_COPY: Record<AgentScope, { title: string; description: string; warni
     title: "Generate images",
     description: "Create images in the destination you chose. This is what most agents need.",
   },
+  upload: {
+    title: "Upload images",
+    description: "Put image files from its own disk into the destination you chose, to edit them by reference. Uploads do not count against the daily image budget.",
+  },
   templates: {
     title: "Read and write templates",
     description: "Use your prompt templates, and save new ones back to your library.",

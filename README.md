@@ -303,11 +303,12 @@ It separates an unreachable server from a rejected key, lists the tools the key 
 | **Library** | `list_images`, `get_image`, `move_image` |
 | **Organising** | `list_workspaces`, `create_workspace` |
 | **Prompts** | `search_templates`, `save_template` |
+| **Uploading** *(off by default)* | `create_upload_url` |
 | **Destructive** *(off by default)* | `delete_image`, `publish_image`, `unpublish_image` |
 
 Editing is `generate_image` with `reference_image_ids` — there is no separate edit tool. Tools return a small preview inline plus a link to the full-resolution file, so a 4K image never floods the agent's context.
 
-New keys get the `generate` scope only. Deleting and publishing must be granted deliberately, and a key can also be capped to a maximum model, a maximum resolution, and a daily image budget.
+New keys get the `generate` scope only. Uploading, deleting and publishing must be granted deliberately, and a key can also be capped to a maximum model, a maximum resolution, and a daily image budget.
 
 ### Getting images out
 
@@ -316,6 +317,10 @@ Every finished image comes with a `download_url`: a short-lived signed link that
 In **Claude Code**, ask to see an image and the agent will download it and post it straight into the chat. Once you have asked, it keeps doing so for every image it makes in that session, including refinements, so you can react and redirect before it spends on the next one. Say you no longer want them inline to turn it off.
 
 The server ships a skill (`skill://homefield-image-studio/SKILL.md`) that teaches all of this, along with how to choose a model and resolution, how to iterate by reference, and how to stay inside the key's workspace and budget. Clients that support the MCP skills extension pick it up on connect; the server's instructions point everything else at it.
+
+### Getting images in
+
+To edit a file the agent already has on disk — a screenshot, a crop, a photo in the project — it calls `create_upload_url` and gets back a signed, single-use link plus the id the file will occupy. One `curl -F` puts the file in the key's workspace, and the id goes into `reference_image_ids` like any other library image. The bytes never pass through the model's context, which is what makes this work: inlining a file as base64 in a tool call fails for anything beyond a few kilobytes. The link expires after about ten minutes and dies with the key. Uploads need the `upload` scope, are capped at 20 MB, and do not count against the daily image budget.
 
 ### Whose credit gets spent
 

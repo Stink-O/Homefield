@@ -61,7 +61,15 @@ export function registerUploadTools(server: McpServer, principal: AgentPrincipal
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
       inputSchema: z.object({
         workspace_id: workspaceIdSchema.optional(),
-        count: z
+        // Coerced, not plain z.number(). MCP clients cache the tool list for
+        // the life of a session, so a client connected before this argument
+        // existed does not know its type and sends it as a bare string — the
+        // call then fails validation for a value the caller got right. Every
+        // such client is one restart from being correct, which is exactly the
+        // kind of breakage that is invisible to whoever added the argument.
+        // Coercion accepts 3 and "3" alike; the int/min/max checks below still
+        // reject anything that is not a whole number in range.
+        count: z.coerce
           .number()
           .int()
           .min(1)

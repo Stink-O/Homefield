@@ -15,6 +15,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 
 // Allowlisted model IDs. Arbitrary strings must never reach the Vertex AI URL.
 const ALLOWED_MODELS = new Set([
+  "gemini-nano-banana-2.1",
   "gemini-3.1-flash-image",
   "gemini-3-pro-image",
   "gemini-3.1-flash-image-preview",
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest) {
 
   // 512 is only supported by the Flash model
   if (quality === "512" && model !== "gemini-3.1-flash-image") {
-    return NextResponse.json({ error: "512 quality is only supported for the Flash model" }, { status: 400 });
+    return NextResponse.json({ error: "512 quality is only supported for Nano Banana 2" }, { status: 400 });
   }
 
   // Lite caps output at 1 Megapixel — no 2K/4K tier

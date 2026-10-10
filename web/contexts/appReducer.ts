@@ -9,7 +9,7 @@
  * during render.
  */
 
-import { MODEL_QUALITIES, type GeneratedImageMeta, type ModelId, type AspectRatio, type Quality, type BatchSize, type RowHeightIndex, type Workspace } from "@/lib/types";
+import { MODEL_QUALITIES, SEARCH_GROUNDING_MODELS, type GeneratedImageMeta, type ModelId, type AspectRatio, type Quality, type BatchSize, type RowHeightIndex, type Workspace } from "@/lib/types";
 import { resolveTheme, type AppState, type OriginFilter, type RemotePendingItem, type Theme } from "./appState";
 
 export type AppAction =
@@ -58,7 +58,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         selectedModel: action.payload,
-        searchGrounding: action.payload === "gemini-3.1-flash-image" ? state.searchGrounding : false,
+        searchGrounding: SEARCH_GROUNDING_MODELS.has(action.payload) ? state.searchGrounding : false,
         quality,
       };
     }

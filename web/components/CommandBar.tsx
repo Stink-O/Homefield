@@ -7,7 +7,7 @@ import { SortableImageStrip, type SortableImage } from "./SortableImageStrip";
 import ZoomModal from "./ZoomModal";
 import Tooltip from "./Tooltip";
 import { useApp } from "@/contexts/AppContext";
-import { MODEL_IMAGE_LIMITS, MAX_PROMPT_LENGTH, PROMPT_COUNTER_THRESHOLD, type AttachedImage } from "@/lib/types";
+import { MODEL_IMAGE_LIMITS, SEARCH_GROUNDING_MODELS, MAX_PROMPT_LENGTH, PROMPT_COUNTER_THRESHOLD, type AttachedImage } from "@/lib/types";
 import { saveDraftImages, loadDraftImages } from "@/lib/storage";
 import ModelToggle from "./ModelToggle";
 import AspectRatioSelector from "./AspectRatioSelector";
@@ -499,7 +499,7 @@ export default function CommandBar({ onGenerate, promptRef, restoreRef, addImage
                 <QualitySelector />
                 <div className="h-5 w-px bg-white/10 hidden sm:block" />
                 <div className="hidden sm:block"><BatchSizeSelector /></div>
-                {state.selectedModel === "gemini-3.1-flash-image" && (
+                {SEARCH_GROUNDING_MODELS.has(state.selectedModel) && (
                   <>
                     <div className="h-5 w-px bg-white/10" />
                     <Tooltip content="Grounds generation in real-time web data. Useful for current events, recent imagery, or specific real-world references.">

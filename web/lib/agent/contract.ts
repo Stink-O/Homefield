@@ -122,6 +122,7 @@ export const QUALITY_RANK: Record<Quality, number> = {
 export const MODEL_RANK: Record<ModelId, number> = {
   "gemini-3.1-flash-lite-image": 0,
   "gemini-3.1-flash-image": 1,
+  "gemini-nano-banana-2.1": 1,
   "gemini-3-pro-image": 2,
 };
 

@@ -44,6 +44,7 @@ which is *sensible*. Cost rises steeply with both.
 | Model | Use it for |
 |---|---|
 | `gemini-3.1-flash-lite-image` | Drafts, thumbnails, quick exploration. Caps at 1K. |
+| `gemini-nano-banana-2.1` | Newest Flash model, GA Oct 2026. 1K–4K, no 512. |
 | `gemini-3.1-flash-image` | The default. Near-Pro quality, much cheaper and faster. |
 | `gemini-3-pro-image` | Final renders and difficult subjects — text in images, hands, complex composition. |
 
@@ -52,7 +53,7 @@ Generating six candidates at Pro/4K to throw five away is the most expensive
 possible way to work, and the owner pays for it.
 
 Two rules the schema enforces, worth knowing so you do not trip them: `512` is
-Flash-only, and Lite has no `2K` or `4K` tier.
+Nano Banana 2 only, and Lite has no `2K` or `4K` tier.
 
 Aspect ratio defaults to `Auto`, which lets the model choose. Name a ratio when
 the output has a destination — `16:9` for a header, `9:16` for a phone, `1:1`

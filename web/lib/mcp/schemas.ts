@@ -37,7 +37,7 @@ export const modelSchema = z.enum(MODEL_IDS).describe(
 );
 
 export const qualitySchema = z.enum(QUALITY_IDS).describe(
-  `Output resolution tier. Not every model supports every tier — ${QUALITY_MATRIX}. In particular: "512" is Flash-only (Pro and Lite reject it), and Lite caps at 1K (no 2K or 4K). Defaults to "1K". A tier above the key's ceiling is refused with quality_exceeds_limit.`,
+  `Output resolution tier. Not every model supports every tier — ${QUALITY_MATRIX}. In particular: "512" is Nano Banana 2 only (2.1, Pro and Lite reject it), and Lite caps at 1K (no 2K or 4K). Defaults to "1K". A tier above the key's ceiling is refused with quality_exceeds_limit.`,
 );
 
 export const aspectRatioSchema = z.enum(ASPECT_RATIOS).describe(

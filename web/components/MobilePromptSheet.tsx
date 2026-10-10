@@ -8,7 +8,7 @@ import { useWebHaptics } from "web-haptics/react";
 import Tooltip from "./Tooltip";
 import ZoomModal from "./ZoomModal";
 import { useApp } from "@/contexts/AppContext";
-import { MODEL_IMAGE_LIMITS, MAX_PROMPT_LENGTH, PROMPT_COUNTER_THRESHOLD, type AttachedImage } from "@/lib/types";
+import { MODEL_IMAGE_LIMITS, SEARCH_GROUNDING_MODELS, MAX_PROMPT_LENGTH, PROMPT_COUNTER_THRESHOLD, type AttachedImage } from "@/lib/types";
 import { saveDraftImages, loadDraftImages } from "@/lib/storage";
 import { useSheetKeyboard, SheetKeyboardDebug } from "@/lib/hooks/useSheetKeyboard";
 import ModelToggle from "./ModelToggle";
@@ -414,7 +414,7 @@ export default function MobilePromptSheet({
                   <div className="inline-flex items-center rounded-2xl border border-dashed border-[var(--chrome-border-strong)]" style={{ background: "linear-gradient(135deg, var(--chrome-surface-hover) 0%, var(--chrome-surface) 100%)" }}>
                     <ModelToggle />
                   </div>
-                  {state.selectedModel === "gemini-3.1-flash-image" && (
+                  {SEARCH_GROUNDING_MODELS.has(state.selectedModel) && (
                     <Tooltip content="Grounds generation in real-time web data. Useful for current events, recent imagery, or specific real-world references.">
                       <button
                         onClick={() => dispatch({ type: "TOGGLE_SEARCH_GROUNDING" })}

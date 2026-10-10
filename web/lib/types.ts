@@ -19,6 +19,7 @@ export interface Workspace {
 // Per Google Vertex AI docs: both Gemini image generation models support up to 14 reference images,
 // 7 MB max per image (inline data).
 export const MODEL_IMAGE_LIMITS: Record<ModelId, number> = {
+  "gemini-nano-banana-2.1": 14,
   "gemini-3.1-flash-image": 14,
   "gemini-3-pro-image": 14,
   "gemini-3.1-flash-lite-image": 14,
@@ -59,6 +60,7 @@ export type ImageOrigin = "user" | "agent";
 export type GeneratedImageMeta = Omit<GeneratedImage, "base64">;
 
 export type ModelId =
+  | "gemini-nano-banana-2.1"
   | "gemini-3.1-flash-image"
   | "gemini-3-pro-image"
   | "gemini-3.1-flash-lite-image";
@@ -81,6 +83,12 @@ export interface ModelOption {
 }
 
 export const MODELS: ModelOption[] = [
+  {
+    id: "gemini-nano-banana-2.1",
+    label: "Nano Banana 2.1",
+    shortLabel: "NB2.1",
+    description: "Newest Flash model — successor to Nano Banana 2",
+  },
   {
     id: "gemini-3.1-flash-image",
     label: "Nano Banana 2",
@@ -121,6 +129,10 @@ export const ASPECT_RATIOS: AspectRatio[] = [
 
 // Both models support the same confirmed-working set.
 export const MODEL_ASPECT_RATIOS: Record<ModelId, AspectRatio[]> = {
+  "gemini-nano-banana-2.1": [
+    "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
+    "9:16", "16:9", "5:4", "4:5", "21:9",
+  ],
   "gemini-3.1-flash-image": [
     "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
     "9:16", "16:9", "5:4", "4:5", "21:9",
@@ -145,11 +157,19 @@ export const QUALITIES: { id: Quality; label: string }[] = [
 ];
 
 export const MODEL_QUALITIES: Record<ModelId, Quality[]> = {
+  // 2.1 dropped the 512 tier that Nano Banana 2 had.
+  "gemini-nano-banana-2.1": ["1K", "2K", "4K"],
   "gemini-3.1-flash-image": ["512", "1K", "2K", "4K"],
   "gemini-3-pro-image":     ["1K", "2K", "4K"],
   // Lite caps output at 1 Megapixel — no 2K/4K tier.
   "gemini-3.1-flash-lite-image": ["1K"],
 };
+
+// Models that accept Google Search grounding (tools: [{ googleSearch: {} }]).
+export const SEARCH_GROUNDING_MODELS: ReadonlySet<ModelId> = new Set<ModelId>([
+  "gemini-nano-banana-2.1",
+  "gemini-3.1-flash-image",
+]);
 
 export type BatchSize = 1 | 2 | 3 | 4;
 
